@@ -2,9 +2,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.db
+*.db-shm
+*.db-wal
 backup/
 .venv/
 venv/
 ENV/
 .vscode/
 .idea/
+.pytest_cache/

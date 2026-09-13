@@ -1,15 +1,16 @@
 """
 KasirKu Barang Page
-Halaman manajemen barang/produk
+Halaman manajemen barang/produk — redesigned with stat cards, modern table, pagination
 """
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
-    QFrame, QComboBox, QMessageBox, QAbstractItemView, QSizePolicy
+    QFrame, QComboBox, QMessageBox, QAbstractItemView, QSizePolicy,
+    QScrollArea
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QColor, QFont
+from PyQt5.QtGui import QColor, QFont, QCursor
 
 from database.db import db
 from database.models import Barang
@@ -20,6 +21,96 @@ import csv
 import os
 from datetime import datetime
 
+ITEMS_PER_PAGE = 10
+
+
+class StatCardBarang(QFrame):
+    """Kartu statistik untuk halaman barang"""
+
+    def __init__(self, title, value, subtitle, icon, icon_bg, parent=None):
+        super().__init__(parent)
+        self.setObjectName("stat_card")
+        self.setMinimumHeight(100)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(16)
+
+        # Text area
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(4)
+
+        self.title_lbl = QLabel(title.upper())
+        self.title_lbl.setStyleSheet("font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: transparent;")
+        text_layout.addWidget(self.title_lbl)
+
+        self.value_lbl = QLabel(str(value))
+        self.value_lbl.setStyleSheet("font-size: 28px; font-weight: 800; background: transparent;")
+        text_layout.addWidget(self.value_lbl)
+
+        if subtitle:
+            self.sub_lbl = QLabel(subtitle)
+            self.sub_lbl.setStyleSheet("font-size: 11px; background: transparent;")
+            text_layout.addWidget(self.sub_lbl)
+
+        layout.addLayout(text_layout)
+        layout.addStretch()
+
+        # Icon box
+        icon_frame = QFrame()
+        icon_frame.setFixedSize(52, 52)
+        icon_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {icon_bg};
+                border-radius: 12px;
+            }}
+        """)
+        icon_layout = QHBoxLayout(icon_frame)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        icon_lbl = QLabel(icon)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet("font-size: 22px; background: transparent;")
+        icon_layout.addWidget(icon_lbl)
+        layout.addWidget(icon_frame)
+
+        self._apply_theme()
+
+    def _apply_theme(self):
+        theme = db.get_setting("app_theme", "dark")
+        if theme == "dark":
+            self.setStyleSheet("""
+                QFrame#stat_card {
+                    background-color: #1A1D27;
+                    border: 1px solid #2D3250;
+                    border-radius: 12px;
+                }
+            """)
+            self.title_lbl.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #F1F5F9; font-size: 28px; font-weight: 800; background: transparent;")
+            if hasattr(self, 'sub_lbl'):
+                self.sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
+        else:
+            self.setStyleSheet("""
+                QFrame#stat_card {
+                    background-color: #FFFFFF;
+                    border: 1px solid #E2E8F0;
+                    border-radius: 12px;
+                }
+            """)
+            self.title_lbl.setStyleSheet("color: #64748B; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #1E293B; font-size: 28px; font-weight: 800; background: transparent;")
+            if hasattr(self, 'sub_lbl'):
+                self.sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
+
+    def update_value(self, value, subtitle=""):
+        self.value_lbl.setText(str(value))
+        if hasattr(self, 'sub_lbl') and subtitle:
+            self.sub_lbl.setText(subtitle)
+
+    def on_theme_changed(self, theme):
+        self._apply_theme()
+
 
 class BarangPage(QWidget):
     """Halaman manajemen barang"""
@@ -27,6 +118,8 @@ class BarangPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._barang_data = []
+        self._filtered_data = []
+        self._current_page = 1
         self._setup_ui()
         self._load_data()
 
@@ -37,163 +130,130 @@ class BarangPage(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setContentsMargins(24, 20, 24, 20)
         layout.setSpacing(16)
 
-        # Header
-        header_layout = QHBoxLayout()
-        title_lbl = QLabel("📦 Manajemen Barang")
-        title_lbl.setStyleSheet("font-size: 20px; font-weight: 800; color: #F1F5F9;")
-        header_layout.addWidget(title_lbl)
-        header_layout.addStretch()
+        # ── STAT CARDS ROW ────────────────────────────────────────────────────
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(14)
 
-        if auth.is_admin:
-            btn_add = QPushButton("+ Tambah Barang")
-            btn_add.setFixedHeight(40)
-            btn_add.setStyleSheet("""
-                QPushButton {
-                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                        stop:0 #6C63FF, stop:1 #8B84FF);
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 0 20px;
-                    font-size: 13px;
-                    font-weight: 700;
-                }
-                QPushButton:hover { background: #8B84FF; }
-            """)
-            btn_add.clicked.connect(self._open_add_form)
-            header_layout.addWidget(btn_add)
+        self.card_total = StatCardBarang(
+            "Total Produk", "0", "⬆ Memuat data...",
+            "📦", "#1E3A5F"
+        )
+        self.card_menipis = StatCardBarang(
+            "Stok Menipis", "0", "⚠ Perlu restock segera",
+            "🛒", "#7C3D12"
+        )
+        self.card_habis = StatCardBarang(
+            "Stok Habis", "0", "⊘ Tidak tersedia di etalase",
+            "🚫", "#7F1D1D"
+        )
 
-            btn_export = QPushButton("📤 Export CSV")
-            btn_export.setFixedHeight(40)
-            btn_export.setStyleSheet("""
-                QPushButton {
-                    background: #21263A;
-                    color: #94A3B8;
-                    border: 1px solid #2D3250;
-                    border-radius: 8px;
-                    padding: 0 16px;
-                    font-size: 13px;
-                }
-                QPushButton:hover { background: #2A2F45; color: #F1F5F9; }
-            """)
-            btn_export.clicked.connect(self._export_csv)
-            header_layout.addWidget(btn_export)
+        cards_layout.addWidget(self.card_total)
+        cards_layout.addWidget(self.card_menipis)
+        cards_layout.addWidget(self.card_habis)
+        layout.addLayout(cards_layout)
 
-        layout.addLayout(header_layout)
-
-        # Filter bar
-        filter_frame = QFrame()
-        filter_frame.setStyleSheet("""
-            QFrame {
-                background: #1A1D27;
-                border: 1px solid #2D3250;
-                border-radius: 10px;
-            }
-        """)
-        filter_layout = QHBoxLayout(filter_frame)
-        filter_layout.setContentsMargins(16, 12, 16, 12)
-        filter_layout.setSpacing(12)
+        # ── TOOLBAR ───────────────────────────────────────────────────────────
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(10)
 
         # Search
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍  Cari nama, kode, atau barcode...")
-        self.search_input.setFixedHeight(38)
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                background: #21263A;
-                border: 1px solid #2D3250;
-                border-radius: 8px;
-                padding: 0 12px;
-                color: #F1F5F9;
-                font-size: 13px;
-            }
-            QLineEdit:focus { border-color: #6C63FF; }
-        """)
+        self.search_input.setPlaceholderText("🔍  Cari nama produk atau SKU...")
+        self.search_input.setFixedHeight(40)
         self.search_input.textChanged.connect(self._on_search_changed)
-        filter_layout.addWidget(self.search_input, 3)
+        toolbar.addWidget(self.search_input, 2)
 
         # Kategori filter
         self.kategori_filter = QComboBox()
         self.kategori_filter.addItem("Semua Kategori")
-        self.kategori_filter.setFixedHeight(38)
-        self.kategori_filter.setFixedWidth(180)
-        self.kategori_filter.setStyleSheet("""
-            QComboBox {
-                background: #21263A;
-                border: 1px solid #2D3250;
-                border-radius: 8px;
-                padding: 0 12px;
-                color: #F1F5F9;
-                font-size: 13px;
-            }
-            QComboBox:focus { border-color: #6C63FF; }
-            QComboBox QAbstractItemView {
-                background: #21263A;
-                border: 1px solid #2D3250;
-                selection-background-color: #6C63FF;
-            }
-        """)
+        self.kategori_filter.setFixedHeight(40)
+        self.kategori_filter.setMinimumWidth(150)
         self.kategori_filter.currentTextChanged.connect(self._filter_table)
-        filter_layout.addWidget(self.kategori_filter)
+        toolbar.addWidget(self.kategori_filter)
 
-        # Stok filter
-        self.stok_filter = QComboBox()
-        self.stok_filter.addItems(["Semua Stok", "Stok Rendah", "Habis"])
-        self.stok_filter.setFixedHeight(38)
-        self.stok_filter.setFixedWidth(140)
-        self.stok_filter.setStyleSheet(self.kategori_filter.styleSheet())
-        self.stok_filter.currentTextChanged.connect(self._filter_table)
-        filter_layout.addWidget(self.stok_filter)
+        # Sort filter
+        self.sort_filter = QComboBox()
+        self.sort_filter.addItems(["Urutkan: Terbaru", "Nama A-Z", "Stok Terendah", "Harga Tertinggi"])
+        self.sort_filter.setFixedHeight(40)
+        self.sort_filter.setMinimumWidth(170)
+        self.sort_filter.currentTextChanged.connect(self._filter_table)
+        toolbar.addWidget(self.sort_filter)
 
-        layout.addWidget(filter_frame)
+        toolbar.addStretch()
 
-        # Stats row
-        self.stats_lbl = QLabel("")
-        self.stats_lbl.setStyleSheet("font-size: 12px; color: #64748B;")
-        layout.addWidget(self.stats_lbl)
+        if auth.is_admin:
+            btn_export = QPushButton("⬇ Ekspor")
+            btn_export.setObjectName("btn_secondary")
+            btn_export.setFixedHeight(40)
+            btn_export.setCursor(QCursor(Qt.PointingHandCursor))
+            btn_export.clicked.connect(self._export_csv)
+            toolbar.addWidget(btn_export)
 
-        # Table
+            btn_add = QPushButton("+ Tambah Barang")
+            btn_add.setObjectName("btn_primary")
+            btn_add.setFixedHeight(40)
+            btn_add.setCursor(QCursor(Qt.PointingHandCursor))
+            btn_add.clicked.connect(self._open_add_form)
+            toolbar.addWidget(btn_add)
+
+        layout.addLayout(toolbar)
+
+        # ── TABLE ─────────────────────────────────────────────────────────────
         self.table = QTableWidget()
-        self.table.setColumnCount(9)
+        self.table.setColumnCount(7)
         self.table.setHorizontalHeaderLabels([
-            "Kode", "Barcode", "Nama Barang", "Kategori",
-            "Harga Beli", "Harga Jual", "Stok", "Satuan", "Aksi"
+            "Produk", "SKU", "Kategori", "Stok", "Harga", "", "Aksi"
         ])
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        hh = self.table.horizontalHeader()
+        hh.setSectionResizeMode(0, QHeaderView.Stretch)
+        hh.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(3, QHeaderView.Fixed)
+        self.table.setColumnWidth(3, 110)
+        hh.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(5, QHeaderView.Fixed)
+        self.table.setColumnWidth(5, 0)  # hidden spacer
+        hh.setSectionResizeMode(6, QHeaderView.Fixed)
+        self.table.setColumnWidth(6, 120)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
         self.table.verticalHeader().setVisible(False)
+        self.table.setShowGrid(False)
         self.table.setAlternatingRowColors(True)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background: #1A1D27;
-                border: 1px solid #2D3250;
-                border-radius: 10px;
-                gridline-color: #2D3250;
-                alternate-background-color: #1E2235;
-            }
-            QTableWidget::item {
-                padding: 10px 12px;
-                color: #F1F5F9;
-            }
-            QTableWidget::item:selected {
-                background: #2A2F45;
-            }
-            QHeaderView::section {
-                background: #21263A;
-                color: #94A3B8;
-                padding: 10px 12px;
-                font-size: 11px;
-                font-weight: 600;
-                border: none;
-                border-bottom: 2px solid #2D3250;
-            }
-        """)
-        layout.addWidget(self.table)
+        layout.addWidget(self.table, 1)
+
+        # ── PAGINATION ────────────────────────────────────────────────────────
+        pagination_layout = QHBoxLayout()
+        pagination_layout.setSpacing(8)
+
+        self.pagination_info_lbl = QLabel("")
+        self.pagination_info_lbl.setStyleSheet("color: #64748B; font-size: 12px; background: transparent;")
+        pagination_layout.addWidget(self.pagination_info_lbl)
+        pagination_layout.addStretch()
+
+        self.btn_prev = QPushButton("Sebelumnya")
+        self.btn_prev.setObjectName("page_btn")
+        self.btn_prev.setFixedHeight(34)
+        self.btn_prev.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_prev.clicked.connect(self._prev_page)
+        pagination_layout.addWidget(self.btn_prev)
+
+        self._page_buttons_container = QHBoxLayout()
+        self._page_buttons_container.setSpacing(4)
+        pagination_layout.addLayout(self._page_buttons_container)
+
+        self.btn_next = QPushButton("Selanjutnya")
+        self.btn_next.setObjectName("page_btn")
+        self.btn_next.setFixedHeight(34)
+        self.btn_next.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_next.clicked.connect(self._next_page)
+        pagination_layout.addWidget(self.btn_next)
+
+        layout.addLayout(pagination_layout)
 
     def _load_data(self):
         """Load semua barang dari database"""
@@ -208,13 +268,15 @@ class BarangPage(QWidget):
                     "kode": b.kode,
                     "barcode": b.barcode or "",
                     "nama": b.nama,
+                    "deskripsi": getattr(b, 'deskripsi', '') or "",
                     "kategori": b.kategori or "",
                     "harga_beli": b.harga_beli,
                     "harga_jual": b.harga_jual,
                     "stok": b.stok,
                     "stok_min": b.stok_min,
                     "satuan": b.satuan,
-                    "is_low_stock": b.stok <= b.stok_min,
+                    "is_low_stock": b.stok <= b.stok_min and b.stok > 0,
+                    "is_empty": b.stok == 0,
                 }
                 for b in barang_list
             ]
@@ -232,6 +294,15 @@ class BarangPage(QWidget):
                 self.kategori_filter.setCurrentIndex(idx)
             self.kategori_filter.blockSignals(False)
 
+        # Update stat cards
+        total = len(self._barang_data)
+        menipis = sum(1 for b in self._barang_data if b["is_low_stock"])
+        habis = sum(1 for b in self._barang_data if b["is_empty"])
+        self.card_total.update_value(f"{total:,}", f"⬆ {total} produk aktif")
+        self.card_menipis.update_value(str(menipis), "⚠ Perlu restock segera")
+        self.card_habis.update_value(str(habis), "⊘ Tidak tersedia di etalase")
+
+        self._current_page = 1
         self._filter_table()
 
     def _on_search_changed(self):
@@ -241,9 +312,9 @@ class BarangPage(QWidget):
         """Filter tabel berdasarkan search dan filter"""
         query = self.search_input.text().strip().lower()
         kat_filter = self.kategori_filter.currentText()
-        stok_filter = self.stok_filter.currentText()
+        sort_text = self.sort_filter.currentText()
 
-        filtered = self._barang_data
+        filtered = list(self._barang_data)
         if query:
             filtered = [b for b in filtered if (
                 query in b["nama"].lower() or
@@ -252,95 +323,239 @@ class BarangPage(QWidget):
             )]
         if kat_filter != "Semua Kategori":
             filtered = [b for b in filtered if b["kategori"] == kat_filter]
-        if stok_filter == "Stok Rendah":
-            filtered = [b for b in filtered if b["is_low_stock"] and b["stok"] > 0]
-        elif stok_filter == "Habis":
-            filtered = [b for b in filtered if b["stok"] == 0]
 
-        self._render_table(filtered)
-        total = len(self._barang_data)
-        self.stats_lbl.setText(f"Menampilkan {len(filtered)} dari {total} barang")
+        # Sort
+        if "Nama A-Z" in sort_text:
+            filtered.sort(key=lambda x: x["nama"])
+        elif "Stok Terendah" in sort_text:
+            filtered.sort(key=lambda x: x["stok"])
+        elif "Harga Tertinggi" in sort_text:
+            filtered.sort(key=lambda x: x["harga_jual"], reverse=True)
+
+        self._filtered_data = filtered
+        self._render_page()
+
+    def _render_page(self):
+        """Render halaman data saat ini"""
+        total = len(self._filtered_data)
+        total_pages = max(1, (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        self._current_page = max(1, min(self._current_page, total_pages))
+
+        start = (self._current_page - 1) * ITEMS_PER_PAGE
+        end = start + ITEMS_PER_PAGE
+        page_data = self._filtered_data[start:end]
+
+        self._render_table(page_data)
+
+        # Update pagination info
+        end_actual = min(end, total)
+        self.pagination_info_lbl.setText(
+            f"Menampilkan {start + 1 if total > 0 else 0}-{end_actual} dari {total} produk"
+        )
+
+        # Update page buttons
+        # Clear old page buttons
+        while self._page_buttons_container.count():
+            item = self._page_buttons_container.takeAt(0)
+            w = item.widget() if item else None
+            if w:
+                w.setParent(None)
+                w.deleteLater()
+
+        max_visible = 4
+        for i in range(1, min(total_pages + 1, max_visible + 1)):
+            btn = QPushButton(str(i))
+            btn.setFixedSize(34, 34)
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
+            if i == self._current_page:
+                btn.setObjectName("page_btn_active")
+            else:
+                btn.setObjectName("page_btn")
+                btn.clicked.connect(lambda _, p=i: self._go_to_page(p))
+            self._page_buttons_container.addWidget(btn)
+
+        self.btn_prev.setEnabled(self._current_page > 1)
+        self.btn_next.setEnabled(self._current_page < total_pages)
+
+    def _go_to_page(self, page):
+        self._current_page = page
+        self._render_page()
+
+    def _prev_page(self):
+        if self._current_page > 1:
+            self._current_page -= 1
+            self._render_page()
+
+    def _next_page(self):
+        total = len(self._filtered_data)
+        total_pages = max(1, (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        if self._current_page < total_pages:
+            self._current_page += 1
+            self._render_page()
+
+    def on_theme_changed(self, theme: str):
+        """Hook saat tema berubah"""
+        self.card_total.on_theme_changed(theme)
+        self.card_menipis.on_theme_changed(theme)
+        self.card_habis.on_theme_changed(theme)
+        self._render_page()
+
+    def _get_product_emoji(self, nama: str, kategori: str) -> str:
+        name_lower = (nama or "").lower()
+        cat_lower = (kategori or "").lower()
+        if "kopi" in name_lower: return "☕"
+        if "burger" in name_lower or "ayam" in name_lower: return "🍔"
+        if "keripik" in name_lower or "singkong" in name_lower: return "🍟"
+        if "air" in name_lower or "mineral" in name_lower: return "💧"
+        if "mie" in name_lower: return "🍜"
+        if "deterjan" in name_lower or "sabun" in name_lower: return "🧴"
+        if "beras" in name_lower: return "🌾"
+        if "teh" in name_lower: return "🍵"
+        if "keyboard" in name_lower or "elektronik" in cat_lower: return "⌨️"
+        if "minuman" in cat_lower: return "🧋"
+        if "makanan" in cat_lower: return "🍱"
+        if "kebersihan" in cat_lower: return "🧹"
+        return "📦"
 
     def _render_table(self, data: list):
         """Render data ke tabel"""
+        is_dark = (db.get_setting("app_theme", "light") == "dark")
+        text_primary = "#F1F5F9" if is_dark else "#1E293B"
+        text_muted = "#94A3B8" if is_dark else "#64748B"
+        icon_bg = "#21263A" if is_dark else "#F1F5F9"
+
+        self.table.clearContents()
+        self.table.setRowCount(0)
         self.table.setRowCount(len(data))
-        self.table.setColumnWidth(8, 120)
 
         for row, b in enumerate(data):
-            self.table.setRowHeight(row, 46)
+            self.table.setRowHeight(row, 62)
 
-            items = [
-                (b["kode"], "#94A3B8"),
-                (b["barcode"], "#64748B"),
-                (b["nama"], "#F1F5F9"),
-                (b["kategori"], "#94A3B8"),
-                (format_rupiah(b["harga_beli"]), "#94A3B8"),
-                (format_rupiah(b["harga_jual"]), "#10B981"),
-            ]
-            for col, (val, color) in enumerate(items):
-                item = QTableWidgetItem(val)
-                item.setForeground(QColor(color))
-                item.setData(Qt.UserRole, b["id"])
-                self.table.setItem(row, col, item)
+            # ── Col 0: Produk (emoji thumbnail + nama + deskripsi) ──
+            product_widget = QWidget()
+            product_widget.setStyleSheet("background: transparent;")
+            product_layout = QHBoxLayout(product_widget)
+            product_layout.setContentsMargins(8, 4, 8, 4)
+            product_layout.setSpacing(12)
 
-            # Stok dengan badge
-            stok_text = str(b["stok"])
-            stok_item = QTableWidgetItem(stok_text)
-            if b["stok"] == 0:
-                stok_item.setForeground(QColor("#EF4444"))
-                stok_item.setFont(QFont("Segoe UI", 10, QFont.Bold))
+            emoji = self._get_product_emoji(b["nama"], b["kategori"])
+            thumb_lbl = QLabel(emoji)
+            thumb_lbl.setFixedSize(38, 38)
+            thumb_lbl.setAlignment(Qt.AlignCenter)
+            thumb_lbl.setStyleSheet(f"""
+                background-color: {icon_bg};
+                border-radius: 8px;
+                font-size: 18px;
+            """)
+            product_layout.addWidget(thumb_lbl)
+
+            name_layout = QVBoxLayout()
+            name_layout.setSpacing(1)
+            name_lbl = QLabel(b["nama"])
+            name_lbl.setStyleSheet(f"color: {text_primary}; font-weight: 600; font-size: 13px; background: transparent;")
+            name_layout.addWidget(name_lbl)
+
+            sku_lbl = QLabel(b.get("deskripsi", "") or b["kode"])
+            sku_lbl.setStyleSheet(f"color: {text_muted}; font-size: 11px; background: transparent;")
+            name_layout.addWidget(sku_lbl)
+            product_layout.addLayout(name_layout)
+
+            self.table.setCellWidget(row, 0, product_widget)
+
+            # ── Col 1: SKU / Kode ──
+            sku_item = QTableWidgetItem(b["kode"])
+            sku_item.setForeground(QColor(text_muted))
+            sku_item.setData(Qt.UserRole, b["id"])
+            self.table.setItem(row, 1, sku_item)
+
+            # ── Col 2: Kategori ──
+            kat_item = QTableWidgetItem(b["kategori"] or "-")
+            kat_item.setForeground(QColor(text_muted))
+            kat_item.setData(Qt.UserRole, b["id"])
+            self.table.setItem(row, 2, kat_item)
+
+            # ── Col 3: Stok badge ──
+            stok_widget = QWidget()
+            stok_widget.setStyleSheet("background: transparent;")
+            stok_layout = QHBoxLayout(stok_widget)
+            stok_layout.setContentsMargins(4, 2, 4, 2)
+            stok_layout.setAlignment(Qt.AlignCenter)
+
+            stok_lbl = QLabel(f"● {b['stok']} Unit")
+            stok_lbl.setWordWrap(False)
+            stok_lbl.setFixedHeight(24)
+            stok_lbl.setMinimumWidth(80)
+            stok_lbl.setAlignment(Qt.AlignCenter)
+            if b["is_empty"]:
+                bg_col = "#7F1D1D" if is_dark else "#FEE2E2"
+                fg_col = "#FCA5A5" if is_dark else "#B91C1C"
+                border_col = "#991B1B" if is_dark else "#FECACA"
             elif b["is_low_stock"]:
-                stok_item.setForeground(QColor("#F59E0B"))
-                stok_item.setFont(QFont("Segoe UI", 10, QFont.Bold))
+                bg_col = "#78350F" if is_dark else "#FEF3C7"
+                fg_col = "#FCD34D" if is_dark else "#B45309"
+                border_col = "#92400E" if is_dark else "#FDE68A"
             else:
-                stok_item.setForeground(QColor("#10B981"))
-            stok_item.setData(Qt.UserRole, b["id"])
-            self.table.setItem(row, 6, stok_item)
+                bg_col = "#14532D" if is_dark else "#DCFCE7"
+                fg_col = "#86EFAC" if is_dark else "#15803D"
+                border_col = "#166534" if is_dark else "#BBF7D0"
 
-            # Satuan
-            satuan_item = QTableWidgetItem(b["satuan"])
-            satuan_item.setForeground(QColor("#64748B"))
-            satuan_item.setData(Qt.UserRole, b["id"])
-            self.table.setItem(row, 7, satuan_item)
+            stok_lbl.setStyleSheet(f"background-color: {bg_col}; color: {fg_col}; border: 1px solid {border_col}; border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight: 700; white-space: nowrap;")
+            stok_layout.addWidget(stok_lbl)
+            self.table.setCellWidget(row, 3, stok_widget)
 
-            # Action buttons
+            # ── Col 4: Harga ──
+            harga_item = QTableWidgetItem(format_rupiah(b["harga_jual"]))
+            harga_item.setForeground(QColor(text_primary))
+            harga_item.setFont(QFont("Segoe UI", 10, QFont.Bold))
+            harga_item.setData(Qt.UserRole, b["id"])
+            self.table.setItem(row, 4, harga_item)
+
+            # ── Col 5: empty ──
+            self.table.setItem(row, 5, QTableWidgetItem(""))
+
+            # ── Col 6: Action buttons ──
             action_widget = QWidget()
+            action_widget.setStyleSheet("background: transparent;")
             action_layout = QHBoxLayout(action_widget)
             action_layout.setContentsMargins(4, 4, 4, 4)
             action_layout.setSpacing(4)
+            action_layout.setAlignment(Qt.AlignCenter)
 
             if auth.is_admin:
-                btn_edit = QPushButton("✏️")
-                btn_edit.setFixedSize(30, 30)
+                btn_restock = QPushButton("＋")
+                btn_restock.setFixedSize(28, 28)
+                btn_restock.setToolTip("Restock / Tambah Stok")
+                btn_restock.setStyleSheet("""
+                    QPushButton { background-color: #14532D; color: #86EFAC; border-radius: 6px; font-weight: bold; border: none; }
+                    QPushButton:hover { background-color: #166534; }
+                """)
+                btn_restock.setCursor(QCursor(Qt.PointingHandCursor))
+                btn_restock.clicked.connect(lambda _, bid=b["id"]: self._open_edit_form(bid))
+                action_layout.addWidget(btn_restock)
+
+                btn_edit = QPushButton("✏")
+                btn_edit.setFixedSize(28, 28)
                 btn_edit.setToolTip("Edit")
                 btn_edit.setStyleSheet("""
-                    QPushButton {
-                        background: #21263A;
-                        border: 1px solid #2D3250;
-                        border-radius: 6px;
-                        font-size: 13px;
-                    }
-                    QPushButton:hover { background: #6C63FF; border-color: #6C63FF; }
+                    QPushButton { background-color: #1E3A5F; color: #93C5FD; border-radius: 6px; font-weight: bold; border: none; }
+                    QPushButton:hover { background-color: #1E40AF; }
                 """)
+                btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_edit.clicked.connect(lambda _, bid=b["id"]: self._open_edit_form(bid))
                 action_layout.addWidget(btn_edit)
 
-                btn_del = QPushButton("🗑️")
-                btn_del.setFixedSize(30, 30)
+                btn_del = QPushButton("🗑")
+                btn_del.setFixedSize(28, 28)
                 btn_del.setToolTip("Hapus")
                 btn_del.setStyleSheet("""
-                    QPushButton {
-                        background: #21263A;
-                        border: 1px solid #2D3250;
-                        border-radius: 6px;
-                        font-size: 13px;
-                    }
-                    QPushButton:hover { background: #EF4444; border-color: #EF4444; }
+                    QPushButton { background-color: #7F1D1D; color: #FCA5A5; border-radius: 6px; font-weight: bold; border: none; }
+                    QPushButton:hover { background-color: #991B1B; }
                 """)
+                btn_del.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_del.clicked.connect(lambda _, bid=b["id"]: self._delete_barang(bid))
                 action_layout.addWidget(btn_del)
 
-            self.table.setCellWidget(row, 8, action_widget)
+            self.table.setCellWidget(row, 6, action_widget)
 
     def _open_add_form(self):
         dialog = BarangFormDialog(parent=self)
@@ -392,4 +607,10 @@ class BarangPage(QWidget):
             QMessageBox.critical(self, "Error", f"Gagal export: {str(e)}")
 
     def refresh(self):
+        self._load_data()
+
+    def on_theme_changed(self, theme: str):
+        """Update stat cards and table styling on theme switch"""
+        for card in [self.card_total, self.card_menipis, self.card_habis]:
+            card._apply_theme()
         self._load_data()

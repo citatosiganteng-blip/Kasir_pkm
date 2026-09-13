@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QCheckBox
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QColor, QCursor
 
 import bcrypt
 from database.db import db
@@ -21,13 +21,12 @@ from auth.auth_manager import auth
 class UserFormDialog(QDialog):
     """Dialog form tambah/edit user"""
 
-    def __init__(self, user: User = None, parent=None):
+    def __init__(self, user=None, parent=None):
         super().__init__(parent)
         self.user = user
         self.setWindowTitle("Tambah User" if not user else "Edit User")
         self.setFixedSize(420, 400)
         self.setModal(True)
-        self.setStyleSheet("QDialog { background: #1A1D27; }")
         self._setup_ui()
         if user:
             self._populate()
@@ -38,30 +37,22 @@ class UserFormDialog(QDialog):
         layout.setSpacing(16)
 
         title = QLabel("👤 " + ("Edit User" if self.user else "Tambah User Baru"))
-        title.setStyleSheet("font-size: 18px; font-weight: 800; color: #F1F5F9;")
+        title.setStyleSheet("font-size: 18px; font-weight: 800; background: transparent;")
         layout.addWidget(title)
 
         def inp(placeholder=""):
             i = QLineEdit()
             i.setPlaceholderText(placeholder)
             i.setFixedHeight(40)
-            i.setStyleSheet("""
-                QLineEdit {
-                    background: #21263A; border: 1px solid #2D3250;
-                    border-radius: 8px; padding: 0 12px; color: #F1F5F9; font-size: 13px;
-                }
-                QLineEdit:focus { border-color: #6C63FF; }
-            """)
             return i
 
         form = QFormLayout()
         form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignRight)
-        lbl_s = "color: #94A3B8; font-size: 12px; font-weight: 600;"
 
         def lbl(t):
             l = QLabel(t)
-            l.setStyleSheet(lbl_s)
+            l.setStyleSheet("font-size: 12px; font-weight: 600; background: transparent;")
             return l
 
         self.nama_input = inp("Nama lengkap user")
@@ -81,20 +72,10 @@ class UserFormDialog(QDialog):
         self.role_combo = QComboBox()
         self.role_combo.addItems(["kasir", "admin"])
         self.role_combo.setFixedHeight(40)
-        self.role_combo.setStyleSheet("""
-            QComboBox {
-                background: #21263A; border: 1px solid #2D3250;
-                border-radius: 8px; padding: 0 12px; color: #F1F5F9; font-size: 13px;
-            }
-            QComboBox QAbstractItemView {
-                background: #21263A; selection-background-color: #6C63FF;
-            }
-        """)
         form.addRow(lbl("Role:"), self.role_combo)
 
         self.aktif_check = QCheckBox("Akun Aktif")
         self.aktif_check.setChecked(True)
-        self.aktif_check.setStyleSheet("color: #F1F5F9; font-size: 13px;")
         form.addRow(lbl("Status:"), self.aktif_check)
 
         layout.addLayout(form)
@@ -107,25 +88,16 @@ class UserFormDialog(QDialog):
 
         btn_row = QHBoxLayout()
         btn_cancel = QPushButton("Batal")
+        btn_cancel.setObjectName("btn_secondary")
         btn_cancel.setFixedHeight(44)
-        btn_cancel.setStyleSheet("""
-            QPushButton {
-                background: #21263A; color: #94A3B8;
-                border: 1px solid #2D3250; border-radius: 8px; font-size: 13px;
-            }
-        """)
+        btn_cancel.setCursor(QCursor(Qt.PointingHandCursor))
         btn_cancel.clicked.connect(self.reject)
         btn_row.addWidget(btn_cancel)
 
         btn_save = QPushButton("💾 Simpan")
+        btn_save.setObjectName("btn_primary")
         btn_save.setFixedHeight(44)
-        btn_save.setStyleSheet("""
-            QPushButton {
-                background: #6C63FF; color: white;
-                border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
-            }
-            QPushButton:hover { background: #8B84FF; }
-        """)
+        btn_save.setCursor(QCursor(Qt.PointingHandCursor))
         btn_save.clicked.connect(self._save)
         btn_row.addWidget(btn_save)
         layout.addLayout(btn_row)
@@ -213,21 +185,13 @@ class UserManagementPage(QWidget):
 
         header = QHBoxLayout()
         title = QLabel("👥 Manajemen User")
-        title.setStyleSheet("font-size: 20px; font-weight: 800; color: #F1F5F9;")
+        title.setStyleSheet("font-size: 20px; font-weight: 800;")
         header.addWidget(title)
         header.addStretch()
 
         btn_add = QPushButton("+ Tambah User")
         btn_add.setFixedHeight(40)
-        btn_add.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6C63FF, stop:1 #8B84FF);
-                color: white; border: none; border-radius: 8px;
-                padding: 0 20px; font-size: 13px; font-weight: 700;
-            }
-            QPushButton:hover { background: #8B84FF; }
-        """)
+        btn_add.setObjectName("btn_primary")
         btn_add.clicked.connect(self._open_add)
         header.addWidget(btn_add)
         layout.addLayout(header)
@@ -236,15 +200,15 @@ class UserManagementPage(QWidget):
         info_frame = QFrame()
         info_frame.setStyleSheet("""
             QFrame {
-                background: rgba(108, 99, 255, 0.1);
-                border: 1px solid rgba(108, 99, 255, 0.3);
+                background: rgba(108, 99, 255, 0.08);
+                border: 1px solid rgba(108, 99, 255, 0.25);
                 border-radius: 8px;
             }
         """)
         info_l = QHBoxLayout(info_frame)
         info_l.setContentsMargins(12, 8, 12, 8)
         info_lbl = QLabel("ℹ️ Perubahan password akan berlaku saat user login berikutnya")
-        info_lbl.setStyleSheet("color: #8B84FF; font-size: 12px; background: transparent;")
+        info_lbl.setStyleSheet("color: #6C63FF; font-size: 12px; font-weight: 500; background: transparent;")
         info_l.addWidget(info_lbl)
         layout.addWidget(info_frame)
 
@@ -265,21 +229,10 @@ class UserManagementPage(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(True)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background: #1A1D27; border: 1px solid #2D3250;
-                border-radius: 10px; gridline-color: #2D3250;
-                alternate-background-color: #1E2235;
-            }
-            QTableWidget::item { padding: 10px; color: #F1F5F9; }
-            QTableWidget::item:selected { background: #2A2F45; }
-            QHeaderView::section {
-                background: #21263A; color: #94A3B8;
-                padding: 10px; font-size: 11px; font-weight: 600;
-                border: none; border-bottom: 2px solid #2D3250;
-            }
-        """)
         layout.addWidget(self.table)
+
+    def on_theme_changed(self, theme: str):
+        self._load_data()
 
     def _load_data(self):
         with db.get_session() as session:
@@ -295,15 +248,19 @@ class UserManagementPage(QWidget):
                 for u in users
             ]
 
+        is_dark = db.get_setting("app_theme", "light") == "dark"
+        user_color = "#F1F5F9" if is_dark else "#0F172A"
+        muted_color = "#94A3B8" if is_dark else "#64748B"
+
         self.table.setRowCount(len(self._users))
         for row, u in enumerate(self._users):
             self.table.setRowHeight(row, 44)
 
             items = [
-                (str(u["id"]), "#64748B"),
-                (u["username"], "#F1F5F9"),
-                (u["nama"], "#94A3B8"),
-                (u["role"].upper(), "#6C63FF" if u["role"] == "admin" else "#94A3B8"),
+                (str(u["id"]), muted_color),
+                (u["username"], user_color),
+                (u["nama"], muted_color),
+                (u["role"].upper(), "#6C63FF" if u["role"] == "admin" else muted_color),
             ]
             for col, (val, color) in enumerate(items):
                 item = QTableWidgetItem(val)
@@ -321,29 +278,34 @@ class UserManagementPage(QWidget):
             action_w = QWidget()
             action_l = QHBoxLayout(action_w)
             action_l.setContentsMargins(4, 4, 4, 4)
-            action_l.setSpacing(4)
+            action_l.setSpacing(6)
 
             btn_edit = QPushButton("✏️")
-            btn_edit.setFixedSize(30, 30)
-            btn_edit.setStyleSheet("""
-                QPushButton {
-                    background: #21263A; border: 1px solid #2D3250; border-radius: 6px; font-size: 13px;
-                }
-                QPushButton:hover { background: #6C63FF; border-color: #6C63FF; }
-            """)
+            btn_edit.setFixedSize(32, 30)
+            btn_edit.setObjectName("btn_secondary")
+            btn_edit.setToolTip("Edit User")
             btn_edit.clicked.connect(lambda _, uid=u["id"]: self._open_edit(uid))
             action_l.addWidget(btn_edit)
 
             # Jangan tampilkan tombol hapus untuk user yang sedang login
             if u["id"] != (auth.current_user.id if auth.current_user else None):
                 btn_del = QPushButton("🗑️")
-                btn_del.setFixedSize(30, 30)
-                btn_del.setStyleSheet("""
-                    QPushButton {
-                        background: #21263A; border: 1px solid #2D3250; border-radius: 6px; font-size: 13px;
-                    }
-                    QPushButton:hover { background: #EF4444; border-color: #EF4444; }
-                """)
+                btn_del.setFixedSize(32, 30)
+                if is_dark:
+                    btn_del.setStyleSheet("""
+                        QPushButton {
+                            background: #2D1A1A; color: #EF4444; border: 1px solid #4D2020; border-radius: 6px; font-size: 12px;
+                        }
+                        QPushButton:hover { background: #EF4444; color: white; }
+                    """)
+                else:
+                    btn_del.setStyleSheet("""
+                        QPushButton {
+                            background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 6px; font-size: 12px;
+                        }
+                        QPushButton:hover { background: #FCA5A5; }
+                    """)
+                btn_del.setToolTip("Hapus / Nonaktifkan User")
                 btn_del.clicked.connect(lambda _, uid=u["id"]: self._delete_user(uid))
                 action_l.addWidget(btn_del)
 

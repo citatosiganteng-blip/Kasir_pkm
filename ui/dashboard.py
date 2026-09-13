@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QTableWidget, QTableWidgetItem, QHeaderView
 )
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtGui import QFont, QColor, QCursor
 from datetime import datetime, date, timedelta
 
 from database.db import db
@@ -18,67 +18,101 @@ from utils.helpers import format_rupiah, format_rupiah_short, format_datetime, g
 
 
 class StatCard(QFrame):
-    """Kartu statistik untuk dashboard"""
+    """Kartu statistik untuk dashboard yang adaptif terhadap mode terang / gelap"""
     def __init__(self, title: str, value: str, icon: str,
                  subtitle: str = "", color: str = "#6C63FF", parent=None):
         super().__init__(parent)
+        self.setObjectName("stat_card")
         self.setFrameStyle(QFrame.NoFrame)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #1A1D27, stop:1 #1E2235);
-                border: 1px solid #2D3250;
-                border-radius: 14px;
-                min-height: 110px;
-            }}
-            QFrame:hover {{
-                border-color: {color};
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #1E2235, stop:1 #21263A);
-            }}
-        """)
+        self.color = color
+        self.title_str = title
+        self.subtitle_str = subtitle
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setSpacing(14)
 
         # Icon
-        icon_frame = QFrame()
-        icon_frame.setFixedSize(56, 56)
-        icon_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {color}22;
-                border-radius: 14px;
-                border: 1px solid {color}44;
-            }}
-        """)
-        icon_layout = QVBoxLayout(icon_frame)
+        self.icon_frame = QFrame()
+        self.icon_frame.setObjectName("stat_card_icon")
+        self.icon_frame.setFixedSize(52, 52)
+        icon_layout = QVBoxLayout(self.icon_frame)
         icon_layout.setContentsMargins(0, 0, 0, 0)
         icon_lbl = QLabel(icon)
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setStyleSheet(f"font-size: 24px; background: transparent; border: none;")
+        icon_lbl.setStyleSheet("font-size: 24px; background: transparent; border: none;")
         icon_layout.addWidget(icon_lbl)
-        layout.addWidget(icon_frame)
+        layout.addWidget(self.icon_frame)
 
         # Text
         text_layout = QVBoxLayout()
         text_layout.setSpacing(4)
 
-        title_lbl = QLabel(title)
-        title_lbl.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600; background: transparent;")
-        text_layout.addWidget(title_lbl)
+        self.title_lbl = QLabel(title)
+        text_layout.addWidget(self.title_lbl)
 
         self.value_lbl = QLabel(value)
-        self.value_lbl.setStyleSheet(f"color: #F1F5F9; font-size: 22px; font-weight: 800; background: transparent;")
         text_layout.addWidget(self.value_lbl)
 
         if subtitle:
-            sub_lbl = QLabel(subtitle)
-            sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
-            text_layout.addWidget(sub_lbl)
+            self.sub_lbl = QLabel(subtitle)
+            text_layout.addWidget(self.sub_lbl)
+        else:
+            self.sub_lbl = None
 
         layout.addLayout(text_layout)
         layout.addStretch()
+
+        current_theme = db.get_setting("app_theme", "light")
+        self.apply_theme(current_theme)
+
+    def apply_theme(self, theme: str):
+        if theme == "dark":
+            self.setStyleSheet(f"""
+                QFrame#stat_card {{
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #1A1D27, stop:1 #1E2235);
+                    border: 1px solid #2D3250;
+                    border-radius: 14px;
+                    min-height: 105px;
+                }}
+                QFrame#stat_card:hover {{
+                    border-color: {self.color};
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                        stop:0 #1E2235, stop:1 #21263A);
+                }}
+                QFrame#stat_card_icon {{
+                    background-color: {self.color}22;
+                    border-radius: 12px;
+                    border: 1px solid {self.color}44;
+                }}
+            """)
+            self.title_lbl.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #F1F5F9; font-size: 20px; font-weight: 800; background: transparent;")
+            if self.sub_lbl:
+                self.sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
+        else:
+            self.setStyleSheet(f"""
+                QFrame#stat_card {{
+                    background-color: #FFFFFF;
+                    border: 1.5px solid #E2E8F0;
+                    border-radius: 14px;
+                    min-height: 105px;
+                }}
+                QFrame#stat_card:hover {{
+                    border-color: {self.color};
+                    background-color: #F8FAFC;
+                }}
+                QFrame#stat_card_icon {{
+                    background-color: {self.color}15;
+                    border-radius: 12px;
+                    border: 1px solid {self.color}30;
+                }}
+            """)
+            self.title_lbl.setStyleSheet("color: #64748B; font-size: 12px; font-weight: 600; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #1E293B; font-size: 20px; font-weight: 800; background: transparent;")
+            if self.sub_lbl:
+                self.sub_lbl.setStyleSheet("color: #94A3B8; font-size: 11px; background: transparent;")
 
     def set_value(self, value: str):
         self.value_lbl.setText(value)
@@ -90,6 +124,7 @@ class DashboardPage(QWidget):
     def __init__(self, on_navigate=None, parent=None):
         super().__init__(parent)
         self.on_navigate = on_navigate
+        self._current_theme = db.get_setting("app_theme", "light")
         self._setup_ui()
         self._load_data()
 
@@ -97,6 +132,23 @@ class DashboardPage(QWidget):
         self.refresh_timer = QTimer(self)
         self.refresh_timer.timeout.connect(self._load_data)
         self.refresh_timer.start(30000)
+
+    def on_theme_changed(self, theme: str):
+        """Hook yang dipanggil saat user mengubah tema"""
+        self._current_theme = theme
+        for card in [
+            self.card_pemasukan, self.card_transaksi,
+            self.card_pengeluaran, self.card_stok_rendah,
+            self.card_bulanan, self.card_laba,
+            self.card_total_barang, self.card_transaksi_batal
+        ]:
+            if hasattr(card, "apply_theme"):
+                card.apply_theme(theme)
+        if hasattr(self, "_divider"):
+            self._divider.setStyleSheet(
+                f"background: {'#2D3250' if theme == 'dark' else '#E2E8F0'}; max-height: 1px; border: none;"
+            )
+        self._load_data()
 
     def _setup_ui(self):
         # Scroll area
@@ -123,7 +175,7 @@ class DashboardPage(QWidget):
         user_name = auth.current_user.nama_lengkap or auth.current_user.username if auth.current_user else "User"
 
         title_lbl = QLabel(f"{greeting}, {user_name}! 👋")
-        title_lbl.setStyleSheet("font-size: 22px; font-weight: 800; color: #F1F5F9; background: transparent;")
+        title_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent;")
         title_layout.addWidget(title_lbl)
 
         date_lbl = QLabel(now.strftime("%A, %d %B %Y"))
@@ -135,30 +187,19 @@ class DashboardPage(QWidget):
         btn_refresh = QPushButton("🔄 Refresh")
         btn_refresh.setObjectName("btn_secondary")
         btn_refresh.setFixedHeight(38)
-        btn_refresh.setStyleSheet("""
-            QPushButton {
-                background: #1A1D27;
-                color: #94A3B8;
-                border: 1px solid #2D3250;
-                border-radius: 8px;
-                padding: 0 16px;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background: #21263A;
-                color: #F1F5F9;
-            }
-        """)
+        btn_refresh.setCursor(QCursor(Qt.PointingHandCursor))
         btn_refresh.clicked.connect(self._load_data)
         header_layout.addWidget(btn_refresh)
 
         main_layout.addLayout(header_layout)
 
         # Divider
-        divider = QFrame()
-        divider.setFrameShape(QFrame.HLine)
-        divider.setStyleSheet("background: #2D3250; max-height: 1px; border: none;")
-        main_layout.addWidget(divider)
+        self._divider = QFrame()
+        self._divider.setFrameShape(QFrame.HLine)
+        self._divider.setStyleSheet(
+            f"background: {'#2D3250' if self._current_theme == 'dark' else '#E2E8F0'}; max-height: 1px; border: none;"
+        )
+        main_layout.addWidget(self._divider)
 
         # Stat Cards
         stats_grid = QGridLayout()
@@ -170,7 +211,7 @@ class DashboardPage(QWidget):
         )
         self.card_transaksi = StatCard(
             "Transaksi Hari Ini", "0", "🧾",
-            "Jumlah transaksi berhasil", "#6C63FF"
+            "Jumlah transaksi berhasil", "#2563EB"
         )
         self.card_pengeluaran = StatCard(
             "Pengeluaran Hari Ini", "Rp 0", "💸",
@@ -189,7 +230,7 @@ class DashboardPage(QWidget):
         # Bulan ini
         self.card_bulanan = StatCard(
             "Pemasukan Bulan Ini", "Rp 0", "📈",
-            "Akumulasi penjualan", "#6C63FF"
+            "Akumulasi penjualan", "#2563EB"
         )
         self.card_laba = StatCard(
             "Estimasi Laba Bersih", "Rp 0", "📊",
@@ -197,7 +238,7 @@ class DashboardPage(QWidget):
         )
         self.card_total_barang = StatCard(
             "Total Barang", "0", "📦",
-            "Jenis barang aktif", "#8B84FF"
+            "Jenis barang aktif", "#8B5CF6"
         )
         self.card_transaksi_batal = StatCard(
             "Transaksi Void", "0", "❌",
@@ -217,20 +258,14 @@ class DashboardPage(QWidget):
 
         # Recent transactions
         recent_frame = QFrame()
-        recent_frame.setStyleSheet("""
-            QFrame {
-                background: #1A1D27;
-                border: 1px solid #2D3250;
-                border-radius: 12px;
-            }
-        """)
+        recent_frame.setObjectName("card")
         recent_layout = QVBoxLayout(recent_frame)
-        recent_layout.setContentsMargins(16, 16, 16, 16)
+        recent_layout.setContentsMargins(18, 18, 18, 18)
         recent_layout.setSpacing(12)
 
         recent_header = QHBoxLayout()
         recent_title = QLabel("Transaksi Terbaru")
-        recent_title.setStyleSheet("font-size: 15px; font-weight: 700; color: #F1F5F9; background: transparent;")
+        recent_title.setStyleSheet("font-size: 15px; font-weight: 700; background: transparent;")
         recent_header.addWidget(recent_title)
         recent_header.addStretch()
         recent_layout.addLayout(recent_header)
@@ -247,40 +282,14 @@ class DashboardPage(QWidget):
         self.recent_table.verticalHeader().setVisible(False)
         self.recent_table.setAlternatingRowColors(True)
         self.recent_table.setMaximumHeight(220)
-        self.recent_table.setStyleSheet("""
-            QTableWidget {
-                background: transparent;
-                border: none;
-                gridline-color: #2D3250;
-                alternate-background-color: #1E2235;
-            }
-            QHeaderView::section {
-                background: #21263A;
-                color: #94A3B8;
-                font-size: 11px;
-                font-weight: 600;
-                border: none;
-                padding: 8px;
-            }
-            QTableWidget::item {
-                padding: 8px;
-                color: #F1F5F9;
-            }
-        """)
         recent_layout.addWidget(self.recent_table)
         bottom_layout.addWidget(recent_frame, 3)
 
         # Low stock items
         low_stock_frame = QFrame()
-        low_stock_frame.setStyleSheet("""
-            QFrame {
-                background: #1A1D27;
-                border: 1px solid #2D3250;
-                border-radius: 12px;
-            }
-        """)
+        low_stock_frame.setObjectName("card")
         low_layout = QVBoxLayout(low_stock_frame)
-        low_layout.setContentsMargins(16, 16, 16, 16)
+        low_layout.setContentsMargins(18, 18, 18, 18)
         low_layout.setSpacing(12)
 
         low_title = QLabel("⚠️ Stok Hampir Habis")
@@ -429,7 +438,7 @@ class DashboardPage(QWidget):
                 item_layout.setSpacing(8)
 
                 name_lbl = QLabel(nama)
-                name_lbl.setStyleSheet("color: #F1F5F9; font-size: 12px; background: transparent;")
+                name_lbl.setStyleSheet("font-size: 12px; font-weight: 500; background: transparent;")
                 name_lbl.setMaximumWidth(140)
                 name_lbl.setWordWrap(False)
                 item_layout.addWidget(name_lbl)

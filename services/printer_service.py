@@ -66,11 +66,11 @@ class PrinterService:
 
     def _print_escpos(self, printer, transaksi):
         """Cetak struk menggunakan ESC/POS commands"""
-        store_name = db.get_setting("store_name", config.STORE_NAME)
-        store_address = db.get_setting("store_address", config.STORE_ADDRESS)
-        store_phone = db.get_setting("store_phone", config.STORE_PHONE)
-        store_tagline = db.get_setting("store_tagline", config.STORE_TAGLINE)
-        paper_width = int(db.get_setting("printer_width", str(config.PRINTER_PAPER_WIDTH)))
+        store_name    = db.get_setting("store_name",    "Toko Kami")
+        store_address = db.get_setting("store_address", "")
+        store_phone   = db.get_setting("store_phone",   "")
+        store_tagline = db.get_setting("store_tagline", "Terima kasih telah berbelanja!")
+        paper_width   = int(db.get_setting("printer_width", str(config.PRINTER_PAPER_WIDTH)))
 
         chars = 42 if paper_width >= 80 else 32
 
@@ -160,9 +160,9 @@ class PrinterService:
 
     def _generate_receipt_text(self, transaksi) -> str:
         """Generate teks struk"""
-        store_name = db.get_setting("store_name", config.STORE_NAME)
-        store_address = db.get_setting("store_address", config.STORE_ADDRESS)
-        store_tagline = db.get_setting("store_tagline", config.STORE_TAGLINE)
+        store_name    = db.get_setting("store_name",    "Toko Kami")
+        store_address = db.get_setting("store_address", "")
+        store_tagline = db.get_setting("store_tagline", "Terima kasih telah berbelanja!")
         chars = 40
 
         lines = [

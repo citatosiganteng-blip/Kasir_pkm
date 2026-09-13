@@ -24,6 +24,7 @@ class User(Base):
     role = Column(String(20), nullable=False, default="kasir")  # admin / kasir
     nama_lengkap = Column(String(100), nullable=True)
     aktif = Column(Boolean, default=True)
+    must_change_password = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
 
     transaksi = relationship("Transaksi", back_populates="kasir")

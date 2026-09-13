@@ -16,11 +16,31 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtGui import QFont
 
 import config
 from ui.styles import MAIN_STYLESHEET
+
+
+class StartupBackupWorker(QThread):
+    """Background worker untuk backup database saat startup tanpa membekukan UI"""
+    backup_finished = pyqtSignal(bool, str)
+
+    def run(self):
+        try:
+            from services.backup_service import BackupService
+            from database.db import db
+            # Hanya backup jika diaktifkan di pengaturan dan DB sudah ada
+            if db.get_setting("backup_enabled", "1") == "1" and config.DB_PATH.exists():
+                backup_path = BackupService().create_backup()
+                success = backup_path is not None
+                if success:
+                    print(f"[KasirKu] Startup background backup selesai: {backup_path}")
+                self.backup_finished.emit(success, str(backup_path or ""))
+        except Exception as e:
+            print(f"[KasirKu] Startup background backup warning: {e}")
+            self.backup_finished.emit(False, str(e))
 
 
 def main():
@@ -46,6 +66,11 @@ def main():
         from database.db import db
         db.initialize()
         print(f"[KasirKu] Database siap: {config.DB_PATH}")
+
+        # Terapkan preferensi tema yang tersimpan di DB
+        saved_theme = db.get_setting("app_theme", "light")
+        from ui.styles import get_theme_stylesheet
+        app.setStyleSheet(get_theme_stylesheet(saved_theme))
     except Exception as e:
         QMessageBox.critical(
             None, "Database Error",
@@ -53,14 +78,10 @@ def main():
         )
         sys.exit(1)
 
-    # Buat backup awal saat startup
-    try:
-        from services.backup_service import BackupService
-        # Hanya backup jika DB sudah ada sebelumnya (bukan pertama kali)
-        if config.DB_PATH.exists():
-            BackupService().create_backup()
-    except Exception as e:
-        print(f"[KasirKu] Startup backup warning: {e}")
+    # Jalankan backup di background thread (non-blocking)
+    backup_worker = StartupBackupWorker()
+    backup_worker.start()
+    app._backup_worker = backup_worker  # Cegah garbage collection
 
     # Tampilkan login window
     show_login(app)

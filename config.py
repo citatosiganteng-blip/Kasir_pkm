@@ -18,11 +18,14 @@ APP_NAME = "KasirKu"
 APP_VERSION = "1.0.0"
 APP_AUTHOR = "PKM Team"
 
-# Store Info (bisa diubah via settings)
-STORE_NAME = "Toko Kami"
-STORE_ADDRESS = "Jl. Contoh No. 1, Kota"
-STORE_PHONE = "08xx-xxxx-xxxx"
-STORE_TAGLINE = "Terima kasih telah berbelanja!"
+# Store Info — TIDAK dipakai langsung di kode.
+# Nilai ini hanya digunakan sekali saat seed awal database (first run).
+# Setelah itu, baca store info SELALU dari DB via db.get_setting().
+# Ubah info toko melalui menu Pengaturan > Info Toko di aplikasi.
+_STORE_NAME_DEFAULT    = "Toko Kami"
+_STORE_ADDRESS_DEFAULT = "Jl. Contoh No. 1, Kota"
+_STORE_PHONE_DEFAULT   = "08xx-xxxx-xxxx"
+_STORE_TAGLINE_DEFAULT = "Terima kasih telah berbelanja!"
 
 # Security
 MAX_LOGIN_ATTEMPTS = 3

@@ -76,10 +76,13 @@ class AuthManager:
                     return False, f"Terlalu banyak percobaan salah. Akun terkunci {config.LOCKOUT_DURATION} detik."
                 return False, f"Username atau password salah. ({attempts_left} percobaan tersisa)"
 
-            # Login berhasil
+            # Login berhasil — simpan data user sebelum session ditutup.
+            # make_transient() memutus relasi objek dari session tanpa
+            # menghapus data, sehingga aman diakses setelah session close.
+            from sqlalchemy.orm import make_transient
             self._clear_failed_attempts(username)
-            # Refresh user object (detach from session)
             session.expunge(user)
+            make_transient(user)
             self._current_user = user
             return True, f"Selamat datang, {user.nama_lengkap or user.username}!"
 
@@ -132,14 +135,21 @@ class AuthManager:
             if len(new_password) < 6:
                 return False, "Password baru minimal 6 karakter."
 
+            if new_password == old_password:
+                return False, "Password baru tidak boleh sama dengan password lama."
+
             user.password_hash = bcrypt.hashpw(
                 new_password.encode(), bcrypt.gensalt()
             ).decode()
-            session.commit()
+            user.must_change_password = False
+
+            if self._current_user and self._current_user.id == user_id:
+                self._current_user.must_change_password = False
+
             return True, "Password berhasil diubah."
 
     def reset_password(self, user_id: int, new_password: str) -> tuple[bool, str]:
-        """Reset password user (admin only)"""
+        """Reset password user (admin only) - mewajibkan ganti password saat login berikutnya"""
         with db.get_session() as session:
             user = session.query(User).filter_by(id=user_id).first()
             if not user:
@@ -147,7 +157,7 @@ class AuthManager:
             user.password_hash = bcrypt.hashpw(
                 new_password.encode(), bcrypt.gensalt()
             ).decode()
-            session.commit()
+            user.must_change_password = True
             return True, f"Password user '{user.username}' berhasil direset."
 
 

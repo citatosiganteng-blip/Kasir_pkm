@@ -1,235 +1,243 @@
 """
 KasirKu Main Window
-Jendela utama dengan sidebar navigasi dan content area
+Jendela utama dengan Left Sidebar Navigation modern matching reference design
 """
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QStackedWidget, QSizePolicy,
-    QStatusBar, QMessageBox, QAction, QToolBar, QSpacerItem
+    QStatusBar, QMessageBox, QSpacerItem, QApplication
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
-from PyQt5.QtGui import QFont, QColor, QIcon
+from PyQt5.QtGui import QFont, QColor, QCursor
 from datetime import datetime
 
 from auth.auth_manager import auth
-from ui.styles import MAIN_STYLESHEET, SIDEBAR_STYLE
+from database.db import db
+from ui.styles import MAIN_STYLESHEET, BOTTOM_NAV_STYLE, get_theme_stylesheet
 import config
 
 
-class SidebarButton(QPushButton):
-    """Tombol sidebar navigasi"""
+class SidebarNavButton(QPushButton):
+    """Tombol navigasi sidebar vertikal dengan ikon kiri + teks"""
 
     def __init__(self, icon: str, text: str, parent=None):
         super().__init__(parent)
         self.setText(f"  {icon}  {text}")
-        self.setObjectName("sidebar_btn")
-        self.setFixedHeight(46)
+        self.setFixedHeight(44)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setCursor(QCursor(Qt.PointingHandCursor))
+        self.setObjectName("nav_btn_sidebar")
         self._is_active = False
 
     def set_active(self, active: bool):
         self._is_active = active
-        self.setObjectName("sidebar_btn_active" if active else "sidebar_btn")
+        self.setObjectName("nav_btn_sidebar_active" if active else "nav_btn_sidebar")
         self.style().unpolish(self)
         self.style().polish(self)
 
 
+# Compatibility alias
+BottomNavButton = SidebarNavButton
+
+
 class MainWindow(QMainWindow):
-    """Jendela utama aplikasi"""
+    """Jendela utama aplikasi dengan Left Sidebar Navigation modern"""
     logout_requested = pyqtSignal()
 
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{config.APP_NAME} - {config.APP_VERSION}")
-        self.setMinimumSize(1100, 700)
+        self.setMinimumSize(1100, 720)
         self.showMaximized()
-        self.setStyleSheet(MAIN_STYLESHEET + SIDEBAR_STYLE)
-        self._sidebar_buttons = []
+
+        self._current_theme = db.get_setting("app_theme", "dark")
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(get_theme_stylesheet(self._current_theme))
+        else:
+            self.setStyleSheet(get_theme_stylesheet(self._current_theme))
+
+        self._nav_buttons = []
         self._pages = {}
+
         self._setup_ui()
-        self._setup_status_bar()
         self._start_clock()
         self._start_backup_timer()
 
     def _setup_ui(self):
         central = QWidget()
+        central.setObjectName("main_central_widget")
         self.setCentralWidget(central)
 
-        main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        # Outer horizontal layout: sidebar | content_area
+        outer_layout = QHBoxLayout(central)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
 
-        # === SIDEBAR ===
-        self.sidebar = QFrame()
-        self.sidebar.setObjectName("sidebar")
-        self.sidebar.setFixedWidth(220)
-        sidebar_layout = QVBoxLayout(self.sidebar)
+        # =====================================================================
+        # LEFT SIDEBAR
+        # =====================================================================
+        sidebar = QFrame()
+        sidebar.setObjectName("sidebar")
+        sidebar.setFixedWidth(165)
+        sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(12, 16, 12, 16)
         sidebar_layout.setSpacing(4)
 
-        # Logo / App name
-        logo_frame = QFrame()
-        logo_frame.setStyleSheet("""
-            QFrame {
-                background: rgba(108, 99, 255, 0.15);
-                border-radius: 12px;
-                border: 1px solid rgba(108, 99, 255, 0.3);
-            }
-        """)
-        logo_layout = QHBoxLayout(logo_frame)
-        logo_layout.setContentsMargins(14, 12, 14, 12)
-        logo_layout.setSpacing(10)
+        # Brand: logo + store name
+        brand_widget = QWidget()
+        brand_widget.setStyleSheet("background: transparent;")
+        brand_layout = QHBoxLayout(brand_widget)
+        brand_layout.setContentsMargins(4, 0, 4, 0)
+        brand_layout.setSpacing(8)
 
-        logo_icon = QLabel("🏪")
-        logo_icon.setStyleSheet("font-size: 24px; background: transparent;")
-        logo_layout.addWidget(logo_icon)
+        store_name = db.get_setting("store_name", config.APP_NAME)
+        brand_icon_lbl = QLabel("🏪")
+        brand_icon_lbl.setObjectName("sidebar_brand_icon")
+        brand_icon_lbl.setStyleSheet("font-size: 18px; background: transparent;")
+        brand_layout.addWidget(brand_icon_lbl)
 
-        logo_text_layout = QVBoxLayout()
-        logo_text_layout.setSpacing(0)
-        app_name_lbl = QLabel(config.APP_NAME)
-        app_name_lbl.setStyleSheet("font-size: 16px; font-weight: 800; color: #F1F5F9; background: transparent;")
-        logo_text_layout.addWidget(app_name_lbl)
-        ver_lbl = QLabel(f"v{config.APP_VERSION}")
-        ver_lbl.setStyleSheet("font-size: 10px; color: #64748B; background: transparent;")
-        logo_text_layout.addWidget(ver_lbl)
-        logo_layout.addLayout(logo_text_layout)
-        logo_layout.addStretch()
+        brand_lbl = QLabel(store_name)
+        brand_lbl.setObjectName("sidebar_brand_lbl")
+        brand_layout.addWidget(brand_lbl)
+        brand_layout.addStretch()
 
-        sidebar_layout.addWidget(logo_frame)
-        sidebar_layout.addSpacing(16)
+        sidebar_layout.addWidget(brand_widget)
 
-        # Section label
-        def section_label(text):
-            lbl = QLabel(text)
-            lbl.setStyleSheet("""
-                color: #3D4466;
-                font-size: 10px;
-                font-weight: 700;
-                letter-spacing: 1px;
-            """)
-            return lbl
-
-        sidebar_layout.addWidget(section_label("UTAMA"))
+        # Divider
+        div = QFrame()
+        div.setFixedHeight(1)
+        div.setStyleSheet("background: rgba(255,255,255,0.1); margin: 8px 0px;")
+        sidebar_layout.addWidget(div)
         sidebar_layout.addSpacing(4)
 
-        # Navigation buttons
+        # Nav items
         nav_items = [
-            ("🏠", "Dashboard", "dashboard"),
-            ("💳", "Kasir (POS)", "kasir"),
-            ("📋", "Riwayat Transaksi", "riwayat"),
-        ]
-
-        for icon, text, key in nav_items:
-            btn = SidebarButton(icon, text)
-            btn.clicked.connect(lambda _, k=key: self._navigate(k))
-            sidebar_layout.addWidget(btn)
-            self._sidebar_buttons.append((key, btn))
-
-        sidebar_layout.addSpacing(12)
-        sidebar_layout.addWidget(section_label("MANAJEMEN"))
-        sidebar_layout.addSpacing(4)
-
-        manage_items = [
-            ("📦", "Barang & Stok", "barang"),
-            ("💸", "Pengeluaran", "pengeluaran"),
+            ("🏠", "Beranda/Kasir", "kasir"),
+            ("📋", "Transaksi", "riwayat"),
+            ("📦", "Barang", "barang"),
             ("📊", "Laporan", "laporan"),
         ]
 
-        for icon, text, key in manage_items:
-            btn = SidebarButton(icon, text)
+        if auth.is_admin:
+            nav_items.append(("⚙️", "Pengaturan", "settings"))
+
+        for icon, text, key in nav_items:
+            btn = SidebarNavButton(icon, text)
             btn.clicked.connect(lambda _, k=key: self._navigate(k))
             sidebar_layout.addWidget(btn)
-            self._sidebar_buttons.append((key, btn))
-
-        # Admin section
-        if auth.is_admin:
-            sidebar_layout.addSpacing(12)
-            sidebar_layout.addWidget(section_label("ADMIN"))
-            sidebar_layout.addSpacing(4)
-
-            admin_items = [
-                ("👥", "Manajemen User", "users"),
-                ("⚙️", "Pengaturan", "settings"),
-            ]
-            for icon, text, key in admin_items:
-                btn = SidebarButton(icon, text)
-                btn.clicked.connect(lambda _, k=key: self._navigate(k))
-                sidebar_layout.addWidget(btn)
-                self._sidebar_buttons.append((key, btn))
+            self._nav_buttons.append((key, btn))
 
         sidebar_layout.addStretch()
 
-        # User info
-        sidebar_layout.addWidget(section_label("SESSION"))
-        sidebar_layout.addSpacing(4)
-
-        user_frame = QFrame()
-        user_frame.setStyleSheet("""
-            QFrame {
-                background: #21263A;
-                border-radius: 10px;
-                border: 1px solid #2D3250;
-            }
-        """)
-        user_layout = QHBoxLayout(user_frame)
-        user_layout.setContentsMargins(12, 10, 12, 10)
-        user_layout.setSpacing(10)
-
-        user_icon = QLabel("👤")
-        user_icon.setStyleSheet("font-size: 18px; background: transparent;")
-        user_layout.addWidget(user_icon)
-
-        user_text = QVBoxLayout()
-        user_text.setSpacing(0)
-        username = auth.current_user.nama_lengkap or auth.current_user.username if auth.current_user else ""
-        user_name_lbl = QLabel(username)
-        user_name_lbl.setStyleSheet("font-size: 12px; font-weight: 600; color: #F1F5F9; background: transparent;")
-        user_name_lbl.setMaximumWidth(130)
-        user_text.addWidget(user_name_lbl)
-
-        role_lbl = QLabel(auth.current_user.role.upper() if auth.current_user else "")
-        role_lbl.setStyleSheet("font-size: 10px; color: #6C63FF; font-weight: 600; background: transparent;")
-        user_text.addWidget(role_lbl)
-        user_layout.addLayout(user_text)
-        user_layout.addStretch()
-        sidebar_layout.addWidget(user_frame)
+        # Divider
+        div2 = QFrame()
+        div2.setFixedHeight(1)
+        div2.setStyleSheet("background: rgba(255,255,255,0.1); margin: 4px 0px;")
+        sidebar_layout.addWidget(div2)
 
         # Logout button
-        btn_logout = QPushButton("⬅️ Logout")
-        btn_logout.setObjectName("sidebar_btn")
-        btn_logout.setFixedHeight(40)
-        btn_logout.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #EF4444;
-                border: 1px solid rgba(239, 68, 68, 0.3);
-                border-radius: 8px;
-                padding: 0 16px;
-                font-size: 13px;
-                font-weight: 600;
-                margin-top: 4px;
-            }
-            QPushButton:hover {
-                background: rgba(239, 68, 68, 0.1);
-                border-color: #EF4444;
-            }
-        """)
+        btn_logout = QPushButton("  🚪  Keluar")
+        btn_logout.setObjectName("nav_btn_logout")
+        btn_logout.setFixedHeight(44)
+        btn_logout.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        btn_logout.setCursor(QCursor(Qt.PointingHandCursor))
         btn_logout.clicked.connect(self._logout)
         sidebar_layout.addWidget(btn_logout)
 
-        main_layout.addWidget(self.sidebar)
+        outer_layout.addWidget(sidebar)
 
-        # === CONTENT AREA ===
+        # =====================================================================
+        # RIGHT AREA: top bar + stacked content
+        # =====================================================================
+        right_area = QWidget()
+        right_area.setStyleSheet("background: transparent;")
+        right_layout = QVBoxLayout(right_area)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+
+        # --- Top Bar ---
+        top_bar = QFrame()
+        top_bar.setObjectName("content_top_bar")
+        top_bar.setFixedHeight(52)
+        top_layout = QHBoxLayout(top_bar)
+        top_layout.setContentsMargins(20, 0, 20, 0)
+        top_layout.setSpacing(12)
+
+        # App title
+        topbar_title = QLabel("KasirKu POS")
+        topbar_title.setObjectName("topbar_title")
+        top_layout.addWidget(topbar_title)
+
+        top_layout.addStretch()
+
+        # Clock
+        self.clock_lbl = QLabel()
+        self.clock_lbl.setObjectName("topbar_clock")
+        top_layout.addWidget(self.clock_lbl)
+
+        # Theme toggle button (moon/sun icon)
+        self.btn_theme_toggle = QPushButton(
+            "🌙 Mode Gelap" if self._current_theme == "light" else "☀️ Mode Terang"
+        )
+        self.btn_theme_toggle.setObjectName("btn_theme_toggle")
+        self.btn_theme_toggle.setFixedHeight(34)
+        self.btn_theme_toggle.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_theme_toggle.setToolTip("Ganti Mode Tampilan (Terang / Gelap)")
+        self.btn_theme_toggle.clicked.connect(self._toggle_theme)
+        top_layout.addWidget(self.btn_theme_toggle)
+
+        # User avatar circle (initials)
+        user_name = ""
+        role_name = ""
+        if auth.current_user:
+            user_name = auth.current_user.nama_lengkap or auth.current_user.username
+            role_name = auth.current_user.role.capitalize()
+
+        initials = ""
+        if user_name:
+            parts = user_name.strip().split()
+            initials = (parts[0][0] + (parts[1][0] if len(parts) > 1 else "")).upper()
+
+        avatar_lbl = QLabel(initials or "👤")
+        avatar_lbl.setObjectName("user_avatar_lbl")
+        avatar_lbl.setFixedSize(32, 32)
+        avatar_lbl.setAlignment(Qt.AlignCenter)
+        top_layout.addWidget(avatar_lbl)
+
+        # User name + status
+        user_info_widget = QWidget()
+        user_info_widget.setStyleSheet("background: transparent;")
+        user_info_layout = QVBoxLayout(user_info_widget)
+        user_info_layout.setContentsMargins(0, 0, 0, 0)
+        user_info_layout.setSpacing(1)
+
+        user_name_lbl = QLabel(user_name)
+        user_name_lbl.setObjectName("user_name_lbl")
+        user_info_layout.addWidget(user_name_lbl)
+
+        status_badge = QLabel("● Active")
+        status_badge.setObjectName("user_status_badge")
+        user_info_layout.addWidget(status_badge)
+
+        top_layout.addWidget(user_info_widget)
+        right_layout.addWidget(top_bar)
+
+        # --- Stacked Content ---
         self.content_stack = QStackedWidget()
-        self.content_stack.setStyleSheet("QStackedWidget { background: #0F1117; }")
-        main_layout.addWidget(self.content_stack)
+        self.content_stack.setStyleSheet(
+            "QStackedWidget { background: transparent; border: none; }"
+        )
+        right_layout.addWidget(self.content_stack, 1)
+
+        outer_layout.addWidget(right_area, 1)
 
         # Load semua pages
         self._load_pages()
 
-        # Default: dashboard
-        self._navigate("dashboard")
+        # Default: Kasir POS
+        self._navigate("kasir")
 
     def _load_pages(self):
         """Load semua halaman"""
@@ -266,42 +274,51 @@ class MainWindow(QMainWindow):
         if key not in self._pages:
             return
 
-        # Update sidebar buttons
-        for btn_key, btn in self._sidebar_buttons:
-            btn.set_active(btn_key == key)
+        # Update status tombol navigasi
+        for k, btn in self._nav_buttons:
+            btn.set_active(k == key)
 
-        # Switch page
-        self.content_stack.setCurrentWidget(self._pages[key])
-
-        # Refresh halaman
+        # Ganti halaman
         page = self._pages[key]
+        self.content_stack.setCurrentWidget(page)
+
+        # Refresh page jika punya method refresh
         if hasattr(page, "refresh"):
             page.refresh()
 
     def _on_transaction_complete(self):
         """Callback saat transaksi selesai"""
-        # Refresh dashboard
         if "dashboard" in self._pages:
             self._pages["dashboard"]._load_data()
 
-    def _setup_status_bar(self):
-        self.status_bar = QStatusBar()
-        self.status_bar.setStyleSheet("""
-            QStatusBar {
-                background: #0F1117;
-                color: #64748B;
-                font-size: 12px;
-                border-top: 1px solid #2D3250;
-            }
-        """)
-        self.setStatusBar(self.status_bar)
+    def _toggle_theme(self):
+        """Toggle antara Mode Terang dan Mode Gelap"""
+        self._current_theme = "dark" if self._current_theme == "light" else "light"
+        db.set_setting("app_theme", self._current_theme)
 
-        store_name = config.STORE_NAME
-        self.status_bar.showMessage(f"  {config.APP_NAME} v{config.APP_VERSION}  ·  {store_name}")
+        new_style = get_theme_stylesheet(self._current_theme)
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(new_style)
+        else:
+            self.setStyleSheet(new_style)
 
-        self.clock_lbl = QLabel()
-        self.clock_lbl.setStyleSheet("color: #64748B; font-size: 12px; padding-right: 12px;")
-        self.status_bar.addPermanentWidget(self.clock_lbl)
+        self.btn_theme_toggle.setText(
+            "🌙 Mode Gelap" if self._current_theme == "light" else "☀️ Mode Terang"
+        )
+
+        # Re-polish all nav buttons
+        for _, btn in self._nav_buttons:
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+        # Beritahu semua halaman yang memiliki hook on_theme_changed
+        for page in self._pages.values():
+            if hasattr(page, "on_theme_changed"):
+                try:
+                    page.on_theme_changed(self._current_theme)
+                except Exception as e:
+                    print(f"[MainWindow] Error updating page theme: {e}")
 
     def _start_clock(self):
         self._clock_timer = QTimer(self)
@@ -314,11 +331,10 @@ class MainWindow(QMainWindow):
         self.clock_lbl.setText(now.strftime("%d/%m/%Y  %H:%M:%S"))
 
     def _start_backup_timer(self):
-        """Timer backup otomatis harian"""
+        """Timer backup otomatis harian (setiap 8 jam)"""
         from services.backup_service import BackupService
         self._backup_service = BackupService()
 
-        # Backup setiap 8 jam (28800 detik)
         self._backup_timer = QTimer(self)
         self._backup_timer.timeout.connect(self._do_backup)
         self._backup_timer.start(8 * 60 * 60 * 1000)
@@ -350,7 +366,6 @@ class MainWindow(QMainWindow):
             QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            # Backup sebelum tutup
             try:
                 from services.backup_service import BackupService
                 BackupService().create_backup()

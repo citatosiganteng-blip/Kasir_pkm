@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (
     QTextEdit, QDialog, QFormLayout, QSplitter, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QColor, QFont, QDoubleValidator
+from PyQt5.QtGui import QColor, QFont, QDoubleValidator, QCursor
 
 from database.db import db
 from database.models import Pengeluaran
@@ -34,7 +34,6 @@ class PengeluaranFormDialog(QDialog):
         self.setWindowTitle("Tambah Pengeluaran" if not pengeluaran else "Edit Pengeluaran")
         self.setFixedSize(460, 420)
         self.setModal(True)
-        self.setStyleSheet("QDialog { background: #1A1D27; }")
         self._setup_ui()
         if pengeluaran:
             self._populate()
@@ -45,43 +44,28 @@ class PengeluaranFormDialog(QDialog):
         layout.setSpacing(16)
 
         title = QLabel("💸 " + ("Edit Pengeluaran" if self.pengeluaran else "Catat Pengeluaran Baru"))
-        title.setStyleSheet("font-size: 18px; font-weight: 800; color: #F1F5F9;")
+        title.setStyleSheet("font-size: 18px; font-weight: 800; background: transparent;")
         layout.addWidget(title)
 
         def inp(placeholder="", height=38):
             i = QLineEdit()
             i.setPlaceholderText(placeholder)
             i.setFixedHeight(height)
-            i.setStyleSheet("""
-                QLineEdit {
-                    background: #21263A; border: 1px solid #2D3250;
-                    border-radius: 8px; padding: 0 12px; color: #F1F5F9; font-size: 13px;
-                }
-                QLineEdit:focus { border-color: #6C63FF; }
-            """)
             return i
 
-        form = QFormLayout()
-        form.setSpacing(12)
-        form.setLabelAlignment(Qt.AlignRight)
-        lbl_style = "color: #94A3B8; font-size: 12px; font-weight: 600;"
-
-        def lbl(t):
-            l = QLabel(t)
-            l.setStyleSheet(lbl_style)
+        def lbl(text):
+            l = QLabel(text)
+            l.setStyleSheet("font-size: 12px; font-weight: 600; background: transparent;")
             return l
+
+        form = QFormLayout()
+        form.setSpacing(14)
 
         # Tanggal
         self.tanggal_input = QDateEdit()
         self.tanggal_input.setCalendarPopup(True)
         self.tanggal_input.setDate(QDate.currentDate())
         self.tanggal_input.setFixedHeight(38)
-        self.tanggal_input.setStyleSheet("""
-            QDateEdit {
-                background: #21263A; border: 1px solid #2D3250;
-                border-radius: 8px; padding: 0 12px; color: #F1F5F9; font-size: 13px;
-            }
-        """)
         form.addRow(lbl("Tanggal:"), self.tanggal_input)
 
         # Kategori
@@ -89,16 +73,6 @@ class PengeluaranFormDialog(QDialog):
         self.kategori_combo.addItems(KATEGORI_PENGELUARAN)
         self.kategori_combo.setEditable(True)
         self.kategori_combo.setFixedHeight(38)
-        self.kategori_combo.setStyleSheet("""
-            QComboBox {
-                background: #21263A; border: 1px solid #2D3250;
-                border-radius: 8px; padding: 0 12px; color: #F1F5F9; font-size: 13px;
-            }
-            QComboBox QAbstractItemView {
-                background: #21263A; border: 1px solid #2D3250;
-                selection-background-color: #6C63FF;
-            }
-        """)
         form.addRow(lbl("Kategori:"), self.kategori_combo)
 
         # Deskripsi
@@ -112,16 +86,6 @@ class PengeluaranFormDialog(QDialog):
         self.nominal_input.setSingleStep(1000)
         self.nominal_input.setGroupSeparatorShown(True)
         self.nominal_input.setFixedHeight(38)
-        self.nominal_input.setStyleSheet("""
-            QDoubleSpinBox {
-                background: #21263A; border: 1px solid #2D3250;
-                border-radius: 8px; padding: 0 12px; color: #F1F5F9; font-size: 13px;
-            }
-            QDoubleSpinBox:focus { border-color: #6C63FF; }
-            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
-                background: #2D3250; border: none; width: 20px; border-radius: 4px;
-            }
-        """)
         form.addRow(lbl("Nominal:"), self.nominal_input)
 
         layout.addLayout(form)
@@ -136,26 +100,15 @@ class PengeluaranFormDialog(QDialog):
         btn_row.setSpacing(12)
 
         btn_cancel = QPushButton("Batal")
+        btn_cancel.setObjectName("btn_secondary")
         btn_cancel.setFixedHeight(44)
-        btn_cancel.setStyleSheet("""
-            QPushButton {
-                background: #21263A; color: #94A3B8;
-                border: 1px solid #2D3250; border-radius: 8px; font-size: 13px;
-            }
-            QPushButton:hover { background: #2A2F45; }
-        """)
+        btn_cancel.setCursor(QCursor(Qt.PointingHandCursor))
         btn_cancel.clicked.connect(self.reject)
         btn_row.addWidget(btn_cancel)
 
         btn_save = QPushButton("💾 Simpan")
         btn_save.setFixedHeight(44)
-        btn_save.setStyleSheet("""
-            QPushButton {
-                background: #6C63FF; color: white;
-                border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
-            }
-            QPushButton:hover { background: #8B84FF; }
-        """)
+        btn_save.setCursor(QCursor(Qt.PointingHandCursor))
         btn_save.clicked.connect(self._save)
         btn_row.addWidget(btn_save)
         layout.addLayout(btn_row)
@@ -222,49 +175,32 @@ class PengeluaranPage(QWidget):
         # Header
         header = QHBoxLayout()
         title = QLabel("💸 Pengeluaran")
-        title.setStyleSheet("font-size: 20px; font-weight: 800; color: #F1F5F9;")
+        title.setStyleSheet("font-size: 20px; font-weight: 800; background: transparent;")
         header.addWidget(title)
         header.addStretch()
 
         btn_add = QPushButton("+ Catat Pengeluaran")
         btn_add.setFixedHeight(40)
-        btn_add.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6C63FF, stop:1 #8B84FF);
-                color: white; border: none; border-radius: 8px;
-                padding: 0 20px; font-size: 13px; font-weight: 700;
-            }
-            QPushButton:hover { background: #8B84FF; }
-        """)
+        btn_add.setCursor(QCursor(Qt.PointingHandCursor))
         btn_add.clicked.connect(self._open_add)
         header.addWidget(btn_add)
         layout.addLayout(header)
 
         # Filters
         filter_frame = QFrame()
-        filter_frame.setStyleSheet("""
-            QFrame { background: #1A1D27; border: 1px solid #2D3250; border-radius: 10px; }
-        """)
+        filter_frame.setObjectName("card")
         fl = QHBoxLayout(filter_frame)
         fl.setContentsMargins(16, 12, 16, 12)
         fl.setSpacing(12)
 
         date_lbl = QLabel("Dari:")
-        date_lbl.setStyleSheet("color: #94A3B8; font-size: 12px;")
+        date_lbl.setStyleSheet("color: #64748B; font-size: 12px; background: transparent;")
         fl.addWidget(date_lbl)
 
-        date_style = """
-            QDateEdit {
-                background: #21263A; border: 1px solid #2D3250;
-                border-radius: 8px; padding: 0 10px; color: #F1F5F9; font-size: 13px;
-            }
-        """
         self.date_from = QDateEdit()
         self.date_from.setCalendarPopup(True)
         self.date_from.setDate(QDate.currentDate().addDays(-30))
         self.date_from.setFixedHeight(38)
-        self.date_from.setStyleSheet(date_style)
         fl.addWidget(self.date_from)
 
         fl.addWidget(QLabel("s/d:"))
@@ -273,40 +209,24 @@ class PengeluaranPage(QWidget):
         self.date_to.setCalendarPopup(True)
         self.date_to.setDate(QDate.currentDate())
         self.date_to.setFixedHeight(38)
-        self.date_to.setStyleSheet(date_style)
         fl.addWidget(self.date_to)
 
         self.kat_filter = QComboBox()
         self.kat_filter.addItem("Semua Kategori")
         self.kat_filter.addItems(KATEGORI_PENGELUARAN)
         self.kat_filter.setFixedHeight(38)
-        self.kat_filter.setStyleSheet("""
-            QComboBox {
-                background: #21263A; border: 1px solid #2D3250;
-                border-radius: 8px; padding: 0 10px; color: #F1F5F9; font-size: 13px;
-            }
-            QComboBox QAbstractItemView {
-                background: #21263A; selection-background-color: #6C63FF;
-            }
-        """)
         fl.addWidget(self.kat_filter)
 
         btn_filter = QPushButton("🔍 Filter")
         btn_filter.setFixedHeight(38)
-        btn_filter.setStyleSheet("""
-            QPushButton {
-                background: #6C63FF; color: white; border: none;
-                border-radius: 8px; padding: 0 16px; font-size: 13px;
-            }
-            QPushButton:hover { background: #8B84FF; }
-        """)
+        btn_filter.setCursor(QCursor(Qt.PointingHandCursor))
         btn_filter.clicked.connect(self._load_data)
         fl.addWidget(btn_filter)
         layout.addWidget(filter_frame)
 
         # Summary
         self.summary_lbl = QLabel("")
-        self.summary_lbl.setStyleSheet("font-size: 13px; color: #94A3B8;")
+        self.summary_lbl.setStyleSheet("font-size: 13px; color: #64748B;")
         layout.addWidget(self.summary_lbl)
 
         # Table
@@ -326,21 +246,11 @@ class PengeluaranPage(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.verticalHeader().setVisible(False)
         self.table.setAlternatingRowColors(True)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background: #1A1D27; border: 1px solid #2D3250;
-                border-radius: 10px; gridline-color: #2D3250;
-                alternate-background-color: #1E2235;
-            }
-            QTableWidget::item { padding: 10px; color: #F1F5F9; }
-            QTableWidget::item:selected { background: #2A2F45; }
-            QHeaderView::section {
-                background: #21263A; color: #94A3B8;
-                padding: 10px; font-size: 11px; font-weight: 600;
-                border: none; border-bottom: 2px solid #2D3250;
-            }
-        """)
         layout.addWidget(self.table)
+
+    def on_theme_changed(self, theme: str):
+        """Hook saat tema berubah"""
+        self._load_data()
 
     def _load_data(self):
         date_from = self.date_from.date().toPyDate()
@@ -377,14 +287,18 @@ class PengeluaranPage(QWidget):
 
     def _render_table(self):
         self.table.setRowCount(len(self._data))
+        is_dark = (db.get_setting("app_theme", "light") == "dark")
+        text_primary = "#F1F5F9" if is_dark else "#1E293B"
+        text_muted = "#94A3B8" if is_dark else "#64748B"
+
         for row, p in enumerate(self._data):
             self.table.setRowHeight(row, 44)
             items = [
-                (format_datetime(p["tanggal"]), "#64748B"),
-                (p["kategori"], "#6C63FF"),
-                (p["deskripsi"], "#F1F5F9"),
+                (format_datetime(p["tanggal"]), text_muted),
+                (p["kategori"], "#2563EB" if not is_dark else "#60A5FA"),
+                (p["deskripsi"], text_primary),
                 (format_rupiah(p["nominal"]), "#EF4444"),
-                (p["user"], "#94A3B8"),
+                (p["user"], text_muted),
             ]
             for col, (val, color) in enumerate(items):
                 item = QTableWidgetItem(val)
@@ -396,28 +310,20 @@ class PengeluaranPage(QWidget):
             action_w = QWidget()
             action_l = QHBoxLayout(action_w)
             action_l.setContentsMargins(4, 4, 4, 4)
-            action_l.setSpacing(4)
+            action_l.setSpacing(6)
 
             if auth.is_admin:
                 btn_edit = QPushButton("✏️")
+                btn_edit.setObjectName("btn_secondary")
                 btn_edit.setFixedSize(30, 30)
-                btn_edit.setStyleSheet("""
-                    QPushButton {
-                        background: #21263A; border: 1px solid #2D3250; border-radius: 6px; font-size: 13px;
-                    }
-                    QPushButton:hover { background: #6C63FF; border-color: #6C63FF; }
-                """)
+                btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_edit.clicked.connect(lambda _, pid=p["id"]: self._open_edit(pid))
                 action_l.addWidget(btn_edit)
 
                 btn_del = QPushButton("🗑️")
+                btn_del.setObjectName("btn_secondary")
                 btn_del.setFixedSize(30, 30)
-                btn_del.setStyleSheet("""
-                    QPushButton {
-                        background: #21263A; border: 1px solid #2D3250; border-radius: 6px; font-size: 13px;
-                    }
-                    QPushButton:hover { background: #EF4444; border-color: #EF4444; }
-                """)
+                btn_del.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_del.clicked.connect(lambda _, pid=p["id"]: self._delete(pid))
                 action_l.addWidget(btn_del)
 

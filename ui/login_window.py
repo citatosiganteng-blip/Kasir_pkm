@@ -374,6 +374,19 @@ class LoginWindow(QWidget):
 
         if success:
             self.error_label.hide()
+
+            # Cek apakah user wajib ganti password (misal password default pada first login)
+            if auth.current_user and getattr(auth.current_user, "must_change_password", False):
+                from ui.change_password_dialog import ChangePasswordDialog
+                dlg = ChangePasswordDialog(auth.current_user.id, auth.current_user.username, self)
+                if dlg.exec_() != ChangePasswordDialog.Accepted:
+                    # User membatalkan ganti password -> batalkan sesi login
+                    auth.logout()
+                    self.btn_login.setEnabled(True)
+                    self.btn_login.setText("Masuk")
+                    self._show_error("Anda harus mengganti password default terlebih dahulu untuk masuk.")
+                    return
+
             self.login_success.emit()
         else:
             self._show_error(message)
