@@ -4,7 +4,7 @@ Unit tests for Authentication & Password Management
 
 import pytest
 from auth.auth_manager import auth
-from database.models import User
+from database.models import User, LoginAttempt
 
 
 def test_default_seed_must_change_password(test_db):
@@ -50,13 +50,59 @@ def test_login_wrong_password_and_lockout(test_db):
     assert ok3 is False
     assert "terkunci" in msg3.lower()
 
-    # 4th attempt saat terkunci
+    # 4th attempt saat terkunci — password benar pun harus ditolak
     ok4, msg4 = auth.login(test_user, "kasir123")
     assert ok4 is False
     assert "terkunci" in msg4.lower()
 
     # Cleanup lockout
     auth._clear_failed_attempts(test_user)
+
+
+def test_login_attempts_persisted_in_db(test_db):
+    """
+    Verifikasi bahwa percobaan login gagal tersimpan di tabel login_attempts.
+    Ini memastikan data tidak hilang jika aplikasi di-restart.
+    """
+    test_user = "kasir"
+    auth._clear_failed_attempts(test_user)
+
+    # Lakukan 2 percobaan gagal
+    auth.login(test_user, "salah1")
+    auth.login(test_user, "salah2")
+
+    # Cek langsung di DB
+    with test_db.get_session() as session:
+        row = session.query(LoginAttempt).filter_by(username=test_user).first()
+        assert row is not None, "Baris LoginAttempt harus ada di DB setelah percobaan gagal"
+        assert row.attempts == 2
+        assert row.last_attempt_at is not None
+
+    # Setelah login berhasil, baris harus dihapus
+    auth.login(test_user, "kasir123")
+    with test_db.get_session() as session:
+        row = session.query(LoginAttempt).filter_by(username=test_user).first()
+        assert row is None, "Baris LoginAttempt harus dihapus setelah login berhasil"
+
+
+def test_login_attempts_cleared_after_success(test_db):
+    """Verifikasi _clear_failed_attempts menghapus data dari DB."""
+    test_user = "admin"
+    auth._clear_failed_attempts(test_user)
+
+    # Catat beberapa percobaan
+    auth._record_failed_attempt(test_user)
+    auth._record_failed_attempt(test_user)
+    assert auth._get_attempts(test_user) == 2
+
+    # Clear
+    auth._clear_failed_attempts(test_user)
+    assert auth._get_attempts(test_user) == 0
+
+    # Pastikan baris benar-benar tidak ada di DB
+    with test_db.get_session() as session:
+        row = session.query(LoginAttempt).filter_by(username=test_user).first()
+        assert row is None
 
 
 def test_change_password_validations(test_db):

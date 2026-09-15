@@ -95,12 +95,21 @@ def show_login(app: QApplication):
     from ui.main_window import MainWindow
 
     login = LoginWindow()
+    app._login_window = login
 
     def on_login_success():
         login.close()
+        app._login_window = None
         main_window = MainWindow()
+        app._main_window = main_window
         main_window.show()
-        main_window.logout_requested.connect(lambda: show_login(app))
+        main_window.logout_requested.connect(lambda: _on_logout(app))
+
+    def _on_logout(app_inst):
+        if hasattr(app_inst, "_main_window") and app_inst._main_window:
+            app_inst._main_window.close()
+            app_inst._main_window = None
+        show_login(app_inst)
 
     login.login_success.connect(on_login_success)
     login.show()

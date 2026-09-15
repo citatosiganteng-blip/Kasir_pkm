@@ -168,10 +168,15 @@ class SettingsPage(QWidget):
         backup_title.setStyleSheet("font-size: 14px; font-weight: 700; margin-top: 8px; background: transparent;")
         layout.addWidget(backup_title)
 
+        restore_hint = QLabel("💡 Pilih baris backup lalu klik Restore untuk mengembalikan data.")
+        restore_hint.setStyleSheet("color: #64748B; font-size: 12px; background: transparent;")
+        layout.addWidget(restore_hint)
+
         self.backup_table = QTableWidget()
-        self.backup_table.setColumnCount(3)
-        self.backup_table.setHorizontalHeaderLabels(["Nama File", "Ukuran", "Tanggal"])
+        self.backup_table.setColumnCount(4)
+        self.backup_table.setHorizontalHeaderLabels(["Nama File", "Ukuran", "Tanggal", "Aksi"])
         self.backup_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.backup_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.backup_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.backup_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.backup_table.verticalHeader().setVisible(False)
@@ -283,6 +288,51 @@ class SettingsPage(QWidget):
             self.backup_table.setItem(row, 2, QTableWidgetItem(
                 format_datetime(b["created"])
             ))
+            # Tombol restore per baris
+            btn_restore = QPushButton("♻️ Restore")
+            btn_restore.setObjectName("btn_warning")
+            btn_restore.setFixedHeight(30)
+            btn_restore.setCursor(QCursor(Qt.PointingHandCursor))
+            btn_restore.clicked.connect(
+                lambda _, path=b["path"], name=b["name"]: self._do_restore(path, name)
+            )
+            self.backup_table.setCellWidget(row, 3, btn_restore)
+
+    def _do_restore(self, backup_path: str, backup_name: str):
+        """Restore database dari file backup yang dipilih."""
+        reply = QMessageBox.warning(
+            self,
+            "⚠️ Konfirmasi Restore",
+            f"Restore dari:\n<b>{backup_name}</b>\n\n"
+            "Data saat ini akan <b>diganti</b> dengan data dari backup tersebut.\n"
+            "Backup otomatis dari kondisi saat ini akan dibuat terlebih dahulu.\n\n"
+            "Lanjutkan?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        backup_svc = BackupService()
+        success = backup_svc.restore_backup(backup_path)
+
+        if success:
+            QMessageBox.information(
+                self,
+                "Restore Berhasil",
+                "Database berhasil di-restore.\n"
+                "Koneksi database telah di-reload otomatis.\n\n"
+                "Disarankan untuk logout dan login kembali agar semua data tampil dengan benar.",
+            )
+            # Refresh daftar backup dan pengaturan dari DB yang baru di-restore
+            self._load_backup_list()
+            self._load_settings()
+        else:
+            QMessageBox.critical(
+                self,
+                "Restore Gagal",
+                "Gagal melakukan restore database.\nCek log konsol untuk detail error.",
+            )
 
     def _manual_open_drawer(self):
         drawer = DrawerService()

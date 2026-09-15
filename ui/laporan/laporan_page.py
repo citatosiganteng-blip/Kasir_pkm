@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QComboBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QTabWidget, QMessageBox, QDateEdit, QSizePolicy,
-    QScrollArea, QMenu, QAction, QToolTip
+    QScrollArea, QMenu, QAction, QToolTip, QFileDialog
 )
 from PyQt5.QtCore import Qt, QDate, QSize, QPoint, QRectF
 from PyQt5.QtGui import (
@@ -296,11 +296,11 @@ class LaporanPage(QWidget):
         btn_export_excel.clicked.connect(self._export_excel)
         header_row.addWidget(btn_export_excel)
 
-        btn_export_pdf = QPushButton("📄 Export PDF")
-        btn_export_pdf.setFixedHeight(36)
-        btn_export_pdf.setCursor(QCursor(Qt.PointingHandCursor))
-        btn_export_pdf.clicked.connect(self._export_csv)
-        header_row.addWidget(btn_export_pdf)
+        btn_export_csv = QPushButton("📄 Export CSV")
+        btn_export_csv.setFixedHeight(36)
+        btn_export_csv.setCursor(QCursor(Qt.PointingHandCursor))
+        btn_export_csv.clicked.connect(self._export_csv)
+        header_row.addWidget(btn_export_csv)
 
         layout.addLayout(header_row)
 
@@ -1000,62 +1000,220 @@ class LaporanPage(QWidget):
     # =========================================================================
     # Export Excel
     # =========================================================================
+    # =========================================================================
+    # Export Excel & CSV
+    # =========================================================================
     def _export_excel(self):
         if self._dt_from is None:
             self._load_all()
+
+        parent_w = self.window() if hasattr(self, "window") else None
+
         try:
             import openpyxl
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            from openpyxl.utils import get_column_letter
         except ImportError:
-            QMessageBox.critical(self, "Error",
+            QMessageBox.critical(parent_w, "Error",
                 "Library openpyxl tidak ditemukan.\nJalankan: pip install openpyxl")
             return
 
+        default_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        os.makedirs(default_dir, exist_ok=True)
+        default_filename = f"laporan_penjualan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        default_path = os.path.join(default_dir, default_filename)
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            parent_w,
+            "Simpan Laporan Excel",
+            default_path,
+            "Excel Files (*.xlsx);;All Files (*)"
+        )
+        if not filepath:
+            return
+
         try:
-            store_name = db.get_setting("store_name", "Toko")
+            store_name = db.get_setting("store_name", "KasirKu")
             wb = openpyxl.Workbook()
             ws = wb.active
-            ws.title = "Laporan"
+            ws.title = "Laporan Penjualan"
 
-            ws.cell(1, 1, store_name).font = Font(bold=True, size=14)
-            ws.cell(2, 1, f"Periode: {self._dt_from.strftime('%d/%m/%Y')} - {self._dt_to.strftime('%d/%m/%Y')}")
+            # Title & Subtitle
+            ws.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
+            period_str = f"Periode: {self._dt_from.strftime('%d/%m/%Y')} s/d {self._dt_to.strftime('%d/%m/%Y')}"
+            ws.cell(2, 1, period_str).font = Font(size=11, italic=True, color="64748B")
+            ws.cell(3, 1, f"Dicetak pada: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}").font = Font(size=9, color="94A3B8")
 
-            headers = ["No", "Nama Produk", "Kategori", "Terjual", "Harga Satuan", "Total Pendapatan"]
-            for col, h in enumerate(headers, 1):
-                c = ws.cell(4, col, h)
-                c.font = Font(bold=True, color="FFFFFF")
+            # Border styles
+            thin_border = Border(
+                left=Side(style='thin', color='CBD5E1'),
+                right=Side(style='thin', color='CBD5E1'),
+                top=Side(style='thin', color='CBD5E1'),
+                bottom=Side(style='thin', color='CBD5E1')
+            )
+
+            # Table Headers
+            headers = ["No", "Nama Produk", "Kategori", "Terjual (Qty)", "Harga Rata-rata", "Total Pendapatan"]
+            header_row = 5
+            for col_idx, h in enumerate(headers, 1):
+                c = ws.cell(header_row, col_idx, h)
+                c.font = Font(bold=True, color="FFFFFF", size=10)
                 c.fill = PatternFill("solid", fgColor="2563EB")
+                c.alignment = Alignment(horizontal="center", vertical="center")
+                c.border = thin_border
+            ws.row_dimensions[header_row].height = 24
 
-            for row_idx, p in enumerate(self._product_data, 5):
-                ws.cell(row_idx, 1, p["rank"])
-                ws.cell(row_idx, 2, p["nama"])
-                ws.cell(row_idx, 3, p["kategori"])
-                ws.cell(row_idx, 4, p["total_qty"])
-                ws.cell(row_idx, 5, p["avg_harga"])
-                ws.cell(row_idx, 6, p["revenue"])
+            total_qty_sum = 0
+            total_rev_sum = 0
 
-            filename = f"laporan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            filepath = os.path.join(os.path.expanduser("~"), "Downloads", filename)
+            # Data rows
+            for idx, p in enumerate(self._product_data, start=header_row + 1):
+                c1 = ws.cell(idx, 1, p.get("rank", idx - header_row))
+                c1.alignment = Alignment(horizontal="center")
+
+                c2 = ws.cell(idx, 2, p.get("nama", "-"))
+
+                c3 = ws.cell(idx, 3, p.get("kategori", "-"))
+                c3.alignment = Alignment(horizontal="center")
+
+                qty = p.get("total_qty", 0)
+                c4 = ws.cell(idx, 4, qty)
+                c4.alignment = Alignment(horizontal="right")
+                c4.number_format = "#,##0"
+                total_qty_sum += qty
+
+                avg = p.get("avg_harga", 0)
+                c5 = ws.cell(idx, 5, avg)
+                c5.alignment = Alignment(horizontal="right")
+                c5.number_format = "#,##0"
+
+                rev = p.get("revenue", 0)
+                c6 = ws.cell(idx, 6, rev)
+                c6.alignment = Alignment(horizontal="right")
+                c6.number_format = "#,##0"
+                total_rev_sum += rev
+
+                for col in range(1, 7):
+                    ws.cell(idx, col).border = thin_border
+
+            # Summary row
+            sum_row = header_row + len(self._product_data) + 1
+            ws.cell(sum_row, 1, "").border = thin_border
+            ws.cell(sum_row, 2, "TOTAL").font = Font(bold=True)
+            ws.cell(sum_row, 2).alignment = Alignment(horizontal="right")
+            ws.cell(sum_row, 2).border = thin_border
+            ws.cell(sum_row, 3, "").border = thin_border
+
+            c_tot_qty = ws.cell(sum_row, 4, total_qty_sum)
+            c_tot_qty.font = Font(bold=True)
+            c_tot_qty.alignment = Alignment(horizontal="right")
+            c_tot_qty.number_format = "#,##0"
+            c_tot_qty.border = thin_border
+
+            ws.cell(sum_row, 5, "").border = thin_border
+
+            c_tot_rev = ws.cell(sum_row, 6, total_rev_sum)
+            c_tot_rev.font = Font(bold=True)
+            c_tot_rev.alignment = Alignment(horizontal="right")
+            c_tot_rev.number_format = "#,##0"
+            c_tot_rev.border = thin_border
+
+            for col in range(1, 7):
+                ws.cell(sum_row, col).fill = PatternFill("solid", fgColor="F1F5F9")
+
+            # Auto-fit column widths
+            for col in ws.columns:
+                max_len = 0
+                col_letter = get_column_letter(col[0].column)
+                for cell in col:
+                    if cell.row < header_row:
+                        continue
+                    if cell.value:
+                        val_str = str(cell.value)
+                        max_len = max(max_len, len(val_str))
+                ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
             wb.save(filepath)
-            QMessageBox.information(self, "Export Berhasil", f"Laporan disimpan ke:\n{filepath}")
+
+            reply = QMessageBox.information(
+                parent_w,
+                "Export Berhasil",
+                f"Laporan Excel berhasil disimpan ke:\n{filepath}\n\nApakah Anda ingin membuka folder penyimpanan?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    os.startfile(os.path.dirname(filepath))
+                except Exception:
+                    pass
+
+        except PermissionError:
+            QMessageBox.critical(
+                parent_w,
+                "File Sedang Digunakan",
+                f"Tidak dapat menyimpan file karena file sedang dibuka oleh program lain (seperti Excel).\n"
+                f"Silakan tutup file '{os.path.basename(filepath)}' lalu coba lagi."
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Error Export", str(e))
+            QMessageBox.critical(parent_w, "Error Export", f"Gagal mengekspor laporan:\n{e}")
 
     def _export_csv(self):
         if self._dt_from is None:
             self._load_all()
+
+        parent_w = self.window() if hasattr(self, "window") else None
+
+        default_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        os.makedirs(default_dir, exist_ok=True)
+        default_filename = f"laporan_penjualan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        default_path = os.path.join(default_dir, default_filename)
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            parent_w,
+            "Simpan Laporan CSV",
+            default_path,
+            "CSV Files (*.csv);;All Files (*)"
+        )
+        if not filepath:
+            return
+
         try:
-            filename = f"laporan_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            filepath = os.path.join(os.path.expanduser("~"), "Downloads", filename)
             with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
                 writer = csv.writer(f)
                 writer.writerow(["No", "Nama Produk", "Kategori", "Terjual", "Harga Satuan", "Total Pendapatan"])
                 for p in self._product_data:
-                    writer.writerow([p["rank"], p["nama"], p["kategori"],
-                                     p["total_qty"], p["avg_harga"], p["revenue"]])
-            QMessageBox.information(self, "Export Berhasil", f"Laporan disimpan ke:\n{filepath}")
+                    writer.writerow([
+                        p.get("rank", ""),
+                        p.get("nama", ""),
+                        p.get("kategori", ""),
+                        p.get("total_qty", 0),
+                        p.get("avg_harga", 0),
+                        p.get("revenue", 0)
+                    ])
+
+            reply = QMessageBox.information(
+                parent_w,
+                "Export Berhasil",
+                f"Laporan CSV berhasil disimpan ke:\n{filepath}\n\nApakah Anda ingin membuka folder penyimpanan?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            if reply == QMessageBox.Yes:
+                try:
+                    os.startfile(os.path.dirname(filepath))
+                except Exception:
+                    pass
+
+        except PermissionError:
+            QMessageBox.critical(
+                parent_w,
+                "File Sedang Digunakan",
+                f"Tidak dapat menyimpan file karena file sedang dibuka oleh program lain.\n"
+                f"Silakan tutup file '{os.path.basename(filepath)}' lalu coba lagi."
+            )
         except Exception as e:
-            QMessageBox.critical(self, "Error Export CSV", str(e))
+            QMessageBox.critical(parent_w, "Error Export CSV", f"Gagal mengekspor CSV:\n{e}")
 
     def refresh(self):
         self._load_all()

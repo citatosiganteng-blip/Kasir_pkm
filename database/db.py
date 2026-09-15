@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
-from database.models import Base, User, Barang, Pengaturan
+from database.models import Base, User, Barang, Pengaturan, LoginAttempt
 import config
 
 
@@ -68,11 +68,32 @@ class DatabaseManager:
         """Migrasi skema database ringan untuk SQLite jika ada kolom baru"""
         try:
             with self._engine.connect() as conn:
+                # --- users: tambah must_change_password jika belum ada ---
                 result = conn.execute(text("PRAGMA table_info(users)"))
                 columns = [row[1] for row in result.fetchall()]
                 if "must_change_password" not in columns:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT 0"))
+                    conn.execute(text(
+                        "ALTER TABLE users ADD COLUMN must_change_password BOOLEAN DEFAULT 0"
+                    ))
                     conn.commit()
+
+                # --- login_attempts: buat tabel jika belum ada ---
+                # (create_all sudah menangani tabel baru, tapi ini sebagai fallback eksplisit)
+                conn.execute(text(
+                    """
+                    CREATE TABLE IF NOT EXISTS login_attempts (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username VARCHAR(100) NOT NULL UNIQUE,
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        last_attempt_at DATETIME NOT NULL
+                    )
+                    """
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_login_attempts_username "
+                    "ON login_attempts (username)"
+                ))
+                conn.commit()
         except Exception as e:
             print(f"[DatabaseManager] Migration warning: {e}")
 
@@ -196,6 +217,23 @@ class DatabaseManager:
                     ))
 
             # commit dilakukan otomatis oleh context manager
+
+    def reconnect(self, db_path: str = None):
+        """
+        Tutup semua koneksi lama lalu reinisialisasi engine ke file DB yang sama
+        (atau ke db_path baru jika diberikan). Dipanggil setelah restore backup
+        agar SQLAlchemy membaca file DB yang sudah diganti.
+        """
+        try:
+            if self._engine is not None:
+                self._engine.dispose()
+                self._engine = None
+            self._SessionLocal = None
+        except Exception as e:
+            print(f"[DatabaseManager] reconnect dispose warning: {e}")
+
+        self.initialize(db_path=db_path)
+        print("[DatabaseManager] Koneksi database berhasil di-reload.")
 
     def get_setting(self, key: str, default=None) -> str:
         """Ambil nilai pengaturan"""

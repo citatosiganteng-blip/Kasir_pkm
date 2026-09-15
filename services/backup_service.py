@@ -63,13 +63,22 @@ class BackupService:
         return backups
 
     def restore_backup(self, backup_path: str) -> bool:
-        """Restore database dari backup"""
+        """
+        Restore database dari backup.
+        Setelah file di-copy, engine SQLAlchemy di-reload agar koneksi
+        menunjuk ke data yang baru saja di-restore.
+        """
         try:
-            # Buat backup saat ini dulu
+            # Buat backup kondisi saat ini sebelum di-overwrite
             self.create_backup()
-            # Restore
+            # Salin file backup ke lokasi DB aktif
             shutil.copy2(backup_path, config.DB_PATH)
             print(f"[BackupService] Restore dari: {backup_path}")
+
+            # Reload koneksi DB — wajib agar SQLAlchemy tidak membaca
+            # data stale dari engine/connection pool lama
+            from database.db import db
+            db.reconnect()
             return True
         except Exception as e:
             print(f"[BackupService] Restore error: {e}")

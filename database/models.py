@@ -148,3 +148,16 @@ class Pengaturan(Base):
 
     def __repr__(self):
         return f"<Pengaturan {self.kunci}={self.nilai}>"
+
+
+class LoginAttempt(Base):
+    """Menyimpan percobaan login gagal agar persistent setelah restart."""
+    __tablename__ = "login_attempts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), nullable=False, index=True, unique=True)
+    attempts = Column(Integer, default=0, nullable=False)
+    last_attempt_at = Column(DateTime, nullable=False, default=datetime.now)
+
+    def __repr__(self):
+        return f"<LoginAttempt {self.username} attempts={self.attempts}>"

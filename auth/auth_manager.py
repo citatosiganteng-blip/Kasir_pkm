@@ -4,11 +4,10 @@ Mengelola autentikasi, session, dan hak akses
 """
 
 import bcrypt
-import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from database.db import db
-from database.models import User
+from database.models import User, LoginAttempt
 import config
 
 
@@ -20,7 +19,6 @@ class AuthManager:
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._current_user = None
-            cls._instance._login_attempts = {}  # {username: (attempts, last_attempt_time)}
         return cls._instance
 
     @property
@@ -46,7 +44,7 @@ class AuthManager:
         """
         username = username.strip()
 
-        # Cek lockout
+        # Cek lockout — baca dari DB agar persistent lintas restart
         if self._is_locked_out(username):
             remaining = self._get_lockout_remaining(username)
             return False, f"Akun terkunci. Coba lagi dalam {remaining} detik."
@@ -73,8 +71,14 @@ class AuthManager:
                 self._record_failed_attempt(username)
                 attempts_left = config.MAX_LOGIN_ATTEMPTS - self._get_attempts(username)
                 if attempts_left <= 0:
-                    return False, f"Terlalu banyak percobaan salah. Akun terkunci {config.LOCKOUT_DURATION} detik."
-                return False, f"Username atau password salah. ({attempts_left} percobaan tersisa)"
+                    return False, (
+                        f"Terlalu banyak percobaan salah. "
+                        f"Akun terkunci {config.LOCKOUT_DURATION} detik."
+                    )
+                return False, (
+                    f"Username atau password salah. "
+                    f"({attempts_left} percobaan tersisa)"
+                )
 
             # Login berhasil — simpan data user sebelum session ditutup.
             # make_transient() memutus relasi objek dari session tanpa
@@ -90,37 +94,87 @@ class AuthManager:
         """Logout current user"""
         self._current_user = None
 
+    # ------------------------------------------------------------------
+    # Login attempt helpers — semua operasi lewat DB agar persistent
+    # ------------------------------------------------------------------
+
+    def _get_attempt_row(self, session, username: str) -> Optional[LoginAttempt]:
+        """Ambil baris LoginAttempt dari DB. Return None jika belum ada."""
+        return session.query(LoginAttempt).filter_by(username=username).first()
+
     def _is_locked_out(self, username: str) -> bool:
-        if username not in self._login_attempts:
+        """Cek apakah username sedang dalam masa lockout."""
+        try:
+            with db.get_session() as session:
+                row = self._get_attempt_row(session, username)
+                if row is None:
+                    return False
+                if row.attempts >= config.MAX_LOGIN_ATTEMPTS:
+                    elapsed = (datetime.now() - row.last_attempt_at).total_seconds()
+                    if elapsed < config.LOCKOUT_DURATION:
+                        return True
+                    # Lockout sudah kedaluwarsa — bersihkan
+                    session.delete(row)
+                return False
+        except Exception as e:
+            print(f"[AuthManager] _is_locked_out error: {e}")
             return False
-        attempts, last_time = self._login_attempts[username]
-        if attempts >= config.MAX_LOGIN_ATTEMPTS:
-            if time.time() - last_time < config.LOCKOUT_DURATION:
-                return True
-            else:
-                # Lockout expired
-                del self._login_attempts[username]
-        return False
 
     def _get_lockout_remaining(self, username: str) -> int:
-        if username not in self._login_attempts:
+        """Sisa waktu lockout dalam detik."""
+        try:
+            with db.get_session() as session:
+                row = self._get_attempt_row(session, username)
+                if row is None:
+                    return 0
+                elapsed = (datetime.now() - row.last_attempt_at).total_seconds()
+                remaining = config.LOCKOUT_DURATION - elapsed
+                return max(0, int(remaining))
+        except Exception as e:
+            print(f"[AuthManager] _get_lockout_remaining error: {e}")
             return 0
-        _, last_time = self._login_attempts[username]
-        remaining = config.LOCKOUT_DURATION - (time.time() - last_time)
-        return max(0, int(remaining))
 
     def _record_failed_attempt(self, username: str):
-        attempts = self._get_attempts(username) + 1
-        self._login_attempts[username] = (attempts, time.time())
+        """Catat satu percobaan login gagal ke DB."""
+        try:
+            with db.get_session() as session:
+                row = self._get_attempt_row(session, username)
+                if row is None:
+                    row = LoginAttempt(
+                        username=username,
+                        attempts=1,
+                        last_attempt_at=datetime.now(),
+                    )
+                    session.add(row)
+                else:
+                    row.attempts += 1
+                    row.last_attempt_at = datetime.now()
+        except Exception as e:
+            print(f"[AuthManager] _record_failed_attempt error: {e}")
 
     def _get_attempts(self, username: str) -> int:
-        if username not in self._login_attempts:
+        """Jumlah percobaan gagal saat ini dari DB."""
+        try:
+            with db.get_session() as session:
+                row = self._get_attempt_row(session, username)
+                return row.attempts if row else 0
+        except Exception as e:
+            print(f"[AuthManager] _get_attempts error: {e}")
             return 0
-        return self._login_attempts[username][0]
 
     def _clear_failed_attempts(self, username: str):
-        if username in self._login_attempts:
-            del self._login_attempts[username]
+        """Hapus catatan percobaan gagal dari DB setelah login berhasil."""
+        try:
+            with db.get_session() as session:
+                row = self._get_attempt_row(session, username)
+                if row is not None:
+                    session.delete(row)
+        except Exception as e:
+            print(f"[AuthManager] _clear_failed_attempts error: {e}")
+
+    # ------------------------------------------------------------------
+    # Password management
+    # ------------------------------------------------------------------
 
     def change_password(self, user_id: int, old_password: str, new_password: str) -> tuple[bool, str]:
         """Ganti password user"""
@@ -149,7 +203,7 @@ class AuthManager:
             return True, "Password berhasil diubah."
 
     def reset_password(self, user_id: int, new_password: str) -> tuple[bool, str]:
-        """Reset password user (admin only) - mewajibkan ganti password saat login berikutnya"""
+        """Reset password user (admin only) — mewajibkan ganti password saat login berikutnya"""
         with db.get_session() as session:
             user = session.query(User).filter_by(id=user_id).first()
             if not user:
