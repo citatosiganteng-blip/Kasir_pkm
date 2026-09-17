@@ -11,6 +11,7 @@ Requirements:
 
 import sys
 import os
+import socket
 
 # Pastikan path benar saat dijalankan dari folder lain
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -41,6 +42,61 @@ class StartupBackupWorker(QThread):
         except Exception as e:
             print(f"[KasirKu] Startup background backup warning: {e}")
             self.backup_finished.emit(False, str(e))
+
+
+class ApiServerThread(QThread):
+    """Background thread yang menjalankan FastAPI/Uvicorn bersamaan dengan desktop app"""
+
+    def run(self):
+        try:
+            import uvicorn
+            port = self._find_free_port(
+                int(os.environ.get("KASIRKU_API_PORT", "8000"))
+            )
+            if port is None:
+                print("[ApiServer] Tidak ada port yang tersedia (8000-8010). API tidak dijalankan.")
+                return
+
+            local_ip = self._get_local_ip()
+            print("=" * 55)
+            print("  [*]  KasirKu REST API Server (background)")
+            print("=" * 55)
+            print(f"  [HP]  Web UI / LAN : http://{local_ip}:{port}")
+            print(f"  [Doc] API Docs     : http://{local_ip}:{port}/docs")
+            print("  Bagikan URL ke HP/Tablet di WiFi yang sama")
+            print("=" * 55)
+            uvicorn.run(
+                "api.main:app",
+                host="0.0.0.0",
+                port=port,
+                reload=False,
+                log_level="warning",
+            )
+        except Exception as e:
+            print(f"[ApiServer] Gagal menjalankan API server: {e}")
+
+    @staticmethod
+    def _find_free_port(start_port: int) -> int | None:
+        """Cari port kosong mulai dari start_port hingga +10"""
+        for port in range(start_port, start_port + 11):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("0.0.0.0", port))
+                    return port  # Port kosong ditemukan
+                except OSError:
+                    continue  # Port sudah dipakai, coba berikutnya
+        return None
+
+    @staticmethod
+    def _get_local_ip() -> str:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
 
 
 def main():
@@ -82,6 +138,11 @@ def main():
     backup_worker = StartupBackupWorker()
     backup_worker.start()
     app._backup_worker = backup_worker  # Cegah garbage collection
+
+    # Jalankan API server di background thread (non-blocking)
+    api_worker = ApiServerThread()
+    api_worker.start()
+    app._api_worker = api_worker  # Cegah garbage collection
 
     # Tampilkan login window
     show_login(app)
