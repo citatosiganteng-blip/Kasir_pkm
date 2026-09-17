@@ -209,6 +209,116 @@
     .stok-qty.out { color: var(--danger); }
     .stok-satuan { font-size: 10px; color: var(--text3); }
 
+    /* ─── FAKTUR TAB ─── */
+    #tab-faktur { overflow-y: auto; }
+    .fkt-header { padding: 12px 14px 0; flex-shrink: 0; }
+    .fkt-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 14px; }
+    .fkt-kpi { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+    .fkt-kpi.warn { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.06); }
+    .fkt-kpi.success { border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.06); }
+    .fkt-kpi.info { border-color: rgba(108,99,255,.35); background: rgba(108,99,255,.06); }
+    .fkt-kpi-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text3); margin-bottom: 4px; }
+    .fkt-kpi-val { font-size: 15px; font-weight: 800; color: var(--text); }
+    .fkt-kpi.warn .fkt-kpi-val { color: var(--warning); }
+    .fkt-kpi.success .fkt-kpi-val { color: var(--success); }
+    .fkt-kpi.info .fkt-kpi-val { color: var(--accent-light); }
+    .fkt-filter { display: flex; gap: 8px; padding: 8px 14px; background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; align-items: center; }
+    .fkt-search { flex: 1; min-width: 140px; padding: 8px 11px; background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+    .fkt-search:focus { border-color: var(--accent); }
+    .fkt-select { padding: 8px 10px; background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text2); font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; }
+    .fkt-btn-new { padding: 8px 14px; background: linear-gradient(135deg,var(--accent),var(--accent-dark)); border: none; border-radius: var(--radius-sm); color: #fff; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; white-space: nowrap; transition: opacity .2s; }
+    .fkt-btn-new:active { opacity: .85; }
+    .fkt-list { padding: 10px 14px; overflow-y: auto; flex: 1; min-height: 0; }
+    .fkt-row { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .fkt-row:active { background: var(--hover); }
+    .fkt-row.overdue { border-left: 3px solid var(--danger); }
+    .fkt-row.tempo { border-left: 3px solid var(--warning); }
+    .fkt-row.lunas { border-left: 3px solid var(--success); }
+    .fkt-row.cicil { border-left: 3px solid var(--accent); }
+    .fkt-row-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .fkt-no { font-size: 13px; font-weight: 700; font-family: monospace; color: var(--accent-light); }
+    .fkt-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+    .fkt-badge.overdue { background: rgba(239,68,68,.15); color: var(--danger); }
+    .fkt-badge.tempo { background: rgba(245,158,11,.15); color: var(--warning); }
+    .fkt-badge.lunas { background: rgba(16,185,129,.15); color: var(--success); }
+    .fkt-badge.cicil { background: rgba(108,99,255,.15); color: var(--accent-light); }
+    .fkt-supplier { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+    .fkt-row-bot { display: flex; justify-content: space-between; align-items: center; }
+    .fkt-total { font-size: 15px; font-weight: 800; color: var(--text); }
+    .fkt-date { font-size: 10px; color: var(--text3); }
+    .fkt-ppn { font-size: 10px; color: var(--accent-light); background: rgba(108,99,255,.1); padding: 1px 6px; border-radius: 8px; }
+    /* ─── FAKTUR MODAL OVERLAY ─── */
+    .fkt-modal-overlay { display: none; position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.82); backdrop-filter: blur(6px); align-items: flex-end; justify-content: center; }
+    .fkt-modal-overlay.show { display: flex; }
+    .fkt-modal-sheet { background: var(--bg2); border: 1px solid var(--border); border-radius: 22px 22px 0 0; width: 100%; max-width: 580px; max-height: 92dvh; overflow-y: auto; animation: slideUp .25s ease; }
+    .fkt-modal-handle { width: 38px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+    .fkt-modal-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .fkt-modal-title { font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .fkt-modal-actions { display: flex; gap: 8px; }
+    .fkt-act-btn { padding: 7px 12px; border: none; border-radius: var(--radius-sm); font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: opacity .2s; }
+    .fkt-act-btn.primary { background: linear-gradient(135deg,var(--accent),var(--accent-dark)); color: #fff; }
+    .fkt-act-btn.ghost { background: var(--card); border: 1px solid var(--border); color: var(--text2); }
+    .fkt-act-btn:active { opacity: .8; }
+    /* A4 white paper inside dark modal */
+    .a4-paper { background: #fff; color: #0f172a; border-radius: 10px; margin: 14px; padding: 24px 22px; font-size: 12px; position: relative; overflow: hidden; }
+    .a4-paper * { font-family: 'Inter', system-ui, sans-serif; }
+    .a4-letterhead { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 14px; border-bottom: 2px solid #e2e8f0; margin-bottom: 14px; }
+    .a4-company { display: flex; flex-direction: column; }
+    .a4-logo { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .a4-logo-box { width: 34px; height: 34px; background: #10b981; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 14px; flex-shrink: 0; }
+    .a4-company-name { font-size: 14px; font-weight: 800; color: #0f172a; }
+    .a4-company-sub { font-size: 10px; color: #64748b; line-height: 1.5; }
+    .a4-doc-title { text-align: right; }
+    .a4-doc-title h2 { font-size: 16px; font-weight: 900; color: #0f172a; margin: 0; text-transform: uppercase; }
+    .a4-doc-num { font-size: 10px; color: #64748b; font-family: monospace; margin-top: 2px; }
+    .a4-status-badge { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .a4-status-badge.lunas { background: #d1fae5; color: #065f46; }
+    .a4-status-badge.tempo { background: #fef3c7; color: #92400e; }
+    .a4-status-badge.overdue { background: #fee2e2; color: #991b1b; }
+    .a4-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .a4-meta-box { background: #f8fafc; border-radius: 6px; padding: 10px 12px; }
+    .a4-meta-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 4px; }
+    .a4-meta-val { font-size: 12px; font-weight: 600; color: #0f172a; }
+    .a4-meta-sub { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .a4-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 11px; }
+    .a4-table thead tr { background: #1e293b; color: #f1f5f9; }
+    .a4-table thead th { padding: 7px 8px; text-align: left; font-size: 9px; text-transform: uppercase; font-weight: 700; letter-spacing: .5px; }
+    .a4-table thead th.right { text-align: right; }
+    .a4-table tbody tr { border-bottom: 1px solid #f1f5f9; }
+    .a4-table tbody tr:hover { background: #f8fafc; }
+    .a4-table td { padding: 7px 8px; color: #1e293b; }
+    .a4-table td.right { text-align: right; font-family: monospace; }
+    .a4-table td.center { text-align: center; }
+    .a4-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .a4-summary-left { display: flex; flex-direction: column; gap: 8px; }
+    .a4-note-box { background: #f8fafc; border-radius: 6px; padding: 8px 10px; font-size: 10px; color: #475569; }
+    .a4-note-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 3px; }
+    .a4-rekening-box { background: #f8fafc; border-radius: 6px; padding: 8px 10px; font-size: 10px; }
+    .a4-terbilang { background: #ecfdf5; border-radius: 6px; padding: 8px 10px; font-size: 10px; color: #065f46; }
+    .a4-terbilang-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #059669; margin-bottom: 2px; }
+    .a4-total-box { background: #f8fafc; border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; }
+    .a4-total-row { display: flex; justify-content: space-between; font-size: 11px; color: #475569; }
+    .a4-total-row.bold { font-weight: 700; color: #0f172a; }
+    .a4-grand { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: #fff; border-radius: 6px; padding: 10px 12px; margin-top: 6px; }
+    .a4-grand-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
+    .a4-grand-val { font-size: 16px; font-weight: 900; color: #4ade80; font-family: monospace; }
+    .a4-watermark { position: absolute; right: 20px; top: 80px; transform: rotate(-12deg); pointer-events: none; opacity: .85; }
+    .a4-watermark-inner { padding: 5px 16px; border: 2px solid #059669; border-radius: 6px; color: #059669; font-size: 20px; font-weight: 900; letter-spacing: 4px; }
+    .a4-sig-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+    .a4-sig-box { text-align: center; font-size: 10px; color: #475569; }
+    .a4-sig-box .role { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 24px; }
+    .a4-sig-box .signer { font-weight: 700; color: #0f172a; text-decoration: underline; margin-top: 4px; }
+    .a4-sig-box .subtitle { font-size: 9px; color: #94a3b8; }
+    .a4-footer { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 12px; padding-top: 10px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; }
+    /* new-po modal */
+    .fkt-new-po-sheet { background: var(--bg2); border: 1px solid var(--border); border-radius: 22px 22px 0 0; width: 100%; max-width: 540px; max-height: 88dvh; overflow-y: auto; animation: slideUp .25s ease; }
+    .fkt-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px 14px; }
+    .fkt-form-field { display: flex; flex-direction: column; gap: 5px; }
+    .fkt-form-field.full { grid-column: 1/-1; }
+    .fkt-form-label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .4px; }
+    .fkt-form-input { padding: 9px 11px; background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; font-family: inherit; outline: none; transition: border-color .2s; }
+    .fkt-form-input:focus { border-color: var(--accent); }
+
     /* ─── PAYMENT MODAL ─── */
     .modal-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.75); backdrop-filter: blur(4px); align-items: flex-end; justify-content: center; }
     .modal-overlay.show { display: flex; }
@@ -381,6 +491,45 @@
       </div>
     </div>
 
+    <!-- ── FAKTUR & PO TAB ── -->
+    <div id="tab-faktur" class="tab-page">
+      <!-- KPI Strip -->
+      <div class="fkt-kpi-grid" id="fkt-kpi-grid">
+        <div class="fkt-kpi">
+          <div class="fkt-kpi-lbl">💰 Total Pembelian (Bulan Ini)</div>
+          <div class="fkt-kpi-val" id="fkt-kpi-total">—</div>
+        </div>
+        <div class="fkt-kpi warn">
+          <div class="fkt-kpi-lbl">⏳ Hutang / Tempo</div>
+          <div class="fkt-kpi-val" id="fkt-kpi-tempo">—</div>
+        </div>
+        <div class="fkt-kpi success">
+          <div class="fkt-kpi-lbl">✅ Sudah Terlunasi</div>
+          <div class="fkt-kpi-val" id="fkt-kpi-lunas">—</div>
+        </div>
+        <div class="fkt-kpi info">
+          <div class="fkt-kpi-lbl">🏦 PPN Masukan (11%)</div>
+          <div class="fkt-kpi-val" id="fkt-kpi-ppn">—</div>
+        </div>
+      </div>
+      <!-- Filter Bar -->
+      <div class="fkt-filter">
+        <input id="fkt-q" class="fkt-search" type="search" placeholder="Cari No PO, Faktur Vendor, Supplier..." oninput="renderFakturList()" />
+        <select id="fkt-status" class="fkt-select" onchange="renderFakturList()">
+          <option value="">Semua Status</option>
+          <option value="lunas">Lunas</option>
+          <option value="tempo">Tempo</option>
+          <option value="overdue">Jatuh Tempo</option>
+          <option value="cicil">Dicicil</option>
+        </select>
+        <button class="fkt-btn-new" onclick="openNewPoModal()">+ PO Baru</button>
+      </div>
+      <!-- List -->
+      <div class="fkt-list" id="fkt-list">
+        <div class="empty-state"><div class="icon">📋</div><p>Memuat faktur...</p></div>
+      </div>
+    </div>
+
   </div><!-- /content-area -->
 
   <!-- Bottom Nav -->
@@ -396,6 +545,9 @@
     </button>
     <button class="nav-btn" id="nav-stok" onclick="switchTab('stok')">
       <span class="nav-icon">📦</span>Stok
+    </button>
+    <button class="nav-btn" id="nav-faktur" onclick="switchTab('faktur')">
+      <span class="nav-icon">🏷️</span>Faktur
     </button>
   </nav>
 
@@ -439,6 +591,78 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- ═══════════════════ FAKTUR PREVIEW MODAL ═══════════════════ -->
+<div class="fkt-modal-overlay" id="fkt-preview-modal">
+  <div class="fkt-modal-sheet">
+    <div class="fkt-modal-handle"></div>
+    <div class="fkt-modal-toolbar">
+      <div class="fkt-modal-title">🧾 <span id="fkt-modal-title-text">Faktur Pembelian</span></div>
+      <div class="fkt-modal-actions">
+        <button class="fkt-act-btn primary" onclick="window.print()">🖨️ Cetak</button>
+        <button class="fkt-act-btn ghost" onclick="closeFktPreview()">✕ Tutup</button>
+      </div>
+    </div>
+    <!-- A4 Paper -->
+    <div class="a4-paper" id="a4-body">
+      <!-- Rendered by JS -->
+      <div class="empty-state"><p>Memuat faktur...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ NEW PO MODAL ═══════════════════ -->
+<div class="fkt-modal-overlay" id="fkt-new-po-modal">
+  <div class="fkt-new-po-sheet">
+    <div class="fkt-modal-handle"></div>
+    <div class="fkt-modal-toolbar">
+      <div class="fkt-modal-title">🛒 Buat PO / Faktur Pembelian Baru</div>
+      <button class="fkt-act-btn ghost" onclick="closeNewPoModal()">✕</button>
+    </div>
+    <div class="fkt-form-grid" style="margin-top:10px;">
+      <div class="fkt-form-field">
+        <label class="fkt-form-label">Pilih Supplier</label>
+        <select id="np-supplier" class="fkt-form-input">
+          <option value="">-- Pilih Supplier --</option>
+        </select>
+      </div>
+      <div class="fkt-form-field">
+        <label class="fkt-form-label">No Faktur Vendor</label>
+        <input id="np-no-faktur" class="fkt-form-input" type="text" placeholder="INV/2024/05/xxx" />
+      </div>
+      <div class="fkt-form-field">
+        <label class="fkt-form-label">Metode Pembayaran</label>
+        <select id="np-metode" class="fkt-form-input">
+          <option value="tempo_14">Tempo 14 Hari</option>
+          <option value="tempo_30">Tempo 30 Hari</option>
+          <option value="cash">Tunai / Cash</option>
+          <option value="transfer">Transfer Bank</option>
+        </select>
+      </div>
+      <div class="fkt-form-field">
+        <label class="fkt-form-label">PPN Masukan (11%)</label>
+        <select id="np-ppn" class="fkt-form-input">
+          <option value="ya">Ya — PKP (Kena PPN)</option>
+          <option value="tidak">Tidak — Non-PPN</option>
+        </select>
+      </div>
+      <div class="fkt-form-field full">
+        <label class="fkt-form-label">Catatan / Keterangan</label>
+        <input id="np-catatan" class="fkt-form-input" type="text" placeholder="Opsional — misal: Restock mingguan sembako" />
+      </div>
+    </div>
+    <div style="padding:0 16px;margin-bottom:10px;">
+      <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:10px 12px;">
+        <div style="font-size:11px;font-weight:700;color:var(--success);margin-bottom:4px;">💡 Rekomendasi Restock Otomatis</div>
+        <div style="font-size:12px;color:var(--text2);">Sistem mendeteksi barang di bawah safety stock. Lanjutkan untuk memilih item dari daftar inventori.</div>
+      </div>
+    </div>
+    <div style="padding:0 16px 20px;display:flex;gap:8px;">
+      <button class="btn btn-ghost" style="font-size:13px;padding:11px;" onclick="closeNewPoModal()">Batal</button>
+      <button class="btn" style="font-size:13px;padding:11px;" onclick="submitNewPo()">Lanjutkan →</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ══════════ CONFIG ══════════ */
@@ -539,6 +763,7 @@ function switchTab(name) {
   if (name==='laporan') loadLaporan();
   if (name==='riwayat') { setTodayDate(); loadRiwayat(); }
   if (name==='stok') loadStok();
+  if (name==='faktur') loadFaktur();
 }
 
 /* ══════════ EMOJI MAP ══════════ */
@@ -832,6 +1057,238 @@ function renderStok() {
     </div>`;
   }).join('');
 }
+
+/* ══════════ FAKTUR & PO ══════════ */
+let fakturAll = [];
+let supplierList = [];
+
+async function loadFaktur() {
+  // Load KPI from API laporan/dashboard
+  try {
+    const dash = await api('GET', '/api/laporan/dashboard');
+    document.getElementById('fkt-kpi-total').textContent = fmt(dash.total_pembelian_bulan_ini ?? 0);
+    document.getElementById('fkt-kpi-tempo').textContent = fmt(dash.hutang_dagang_tempo ?? 0);
+    document.getElementById('fkt-kpi-lunas').textContent = fmt(dash.pembelian_lunas_bulan_ini ?? 0);
+    document.getElementById('fkt-kpi-ppn').textContent = fmt(dash.ppn_masukan_bulan_ini ?? 0);
+  } catch(_) {}
+  // Load purchase invoices
+  try {
+    const data = await api('GET', '/api/pembelian?limit=200');
+    fakturAll = Array.isArray(data) ? data : (data.items || []);
+    renderFakturList();
+  } catch(e) {
+    document.getElementById('fkt-list').innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${e.message}</p></div>`;
+  }
+  // Load suppliers for new-po form
+  try {
+    const sups = await api('GET', '/api/supplier?limit=100');
+    supplierList = Array.isArray(sups) ? sups : (sups.items || []);
+    const sel = document.getElementById('np-supplier');
+    if (sel) {
+      sel.innerHTML = '<option value="">-- Pilih Supplier --</option>' +
+        supplierList.map(s => `<option value="${s.id}">${s.nama}</option>`).join('');
+    }
+  } catch(_) {}
+}
+
+function getStatusClass(po) {
+  if (!po) return 'tempo';
+  const s = (po.status_bayar || '').toLowerCase();
+  if (s === 'lunas') return 'lunas';
+  if (s === 'cicil') return 'cicil';
+  // Check overdue
+  if (po.tanggal_jatuh_tempo) {
+    const due = new Date(po.tanggal_jatuh_tempo);
+    if (due < new Date()) return 'overdue';
+  }
+  return 'tempo';
+}
+
+const STATUS_LABEL = { lunas:'✅ Lunas', tempo:'⏳ Tempo', overdue:'🔴 Jatuh Tempo', cicil:'💳 Dicicil' };
+
+function renderFakturList() {
+  const q = (document.getElementById('fkt-q')?.value || '').toLowerCase().trim();
+  const status = document.getElementById('fkt-status')?.value || '';
+  let list = fakturAll;
+  if (q) list = list.filter(p =>
+    (p.no_po||'').toLowerCase().includes(q) ||
+    (p.no_faktur||'').toLowerCase().includes(q) ||
+    (p.supplier?.nama||'').toLowerCase().includes(q)
+  );
+  if (status) list = list.filter(p => getStatusClass(p) === status);
+  const el = document.getElementById('fkt-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>Tidak ada faktur ditemukan</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(po => {
+    const sc = getStatusClass(po);
+    const badgeTxt = STATUS_LABEL[sc] || sc;
+    const dpp = fmt(po.dpp || po.subtotal || 0);
+    const ttl = fmt(po.total || 0);
+    const ppn = fmt(po.ppn_nominal || 0);
+    return `<div class="fkt-row ${sc}" onclick="openFakturPreview(${po.id})">
+      <div class="fkt-row-top">
+        <div class="fkt-no">${po.no_po || po.no_faktur || '—'}</div>
+        <div class="fkt-badge ${sc}">${badgeTxt}</div>
+      </div>
+      <div class="fkt-supplier">🏪 ${po.supplier?.nama || '—'} &nbsp;|&nbsp; Ref: ${po.no_faktur || '—'}</div>
+      <div class="fkt-row-bot">
+        <div class="fkt-total">${ttl}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="fkt-ppn">PPN ${ppn}</span>
+          <span class="fkt-date">${po.tanggal ? new Date(po.tanggal).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : ''}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function openFakturPreview(id) {
+  document.getElementById('fkt-preview-modal').classList.add('show');
+  document.getElementById('a4-body').innerHTML = '<div class="empty-state"><p>⏳ Memuat faktur...</p></div>';
+  try {
+    const po = await api('GET', `/api/pembelian/${id}`);
+    renderA4(po);
+  } catch(e) {
+    document.getElementById('a4-body').innerHTML = `<div class="empty-state"><p>❌ ${e.message}</p></div>`;
+  }
+}
+
+function renderA4(po) {
+  if (!po) return;
+  const sc = getStatusClass(po);
+  const watermarkTxt = sc === 'lunas' ? 'LUNAS' : sc === 'overdue' ? 'TEMPO' : 'TEMPO';
+  const details = (po.detail || po.items || []);
+  const itemRows = details.map((d,i) => `
+    <tr>
+      <td class="center">${i+1}</td>
+      <td>${d.kode_barang||'—'}</td>
+      <td><strong>${d.nama_barang||d.nama||'—'}</strong></td>
+      <td class="right">${d.qty||0}</td>
+      <td class="center">${d.satuan||'pcs'}</td>
+      <td class="right">${fmt(d.harga_beli||d.harga||0)}</td>
+      <td class="right">${fmt(d.subtotal||0)}</td>
+    </tr>`).join('');
+  const dpp = po.dpp || po.subtotal || 0;
+  const ppn = po.ppn_nominal || 0;
+  const total = po.total || 0;
+  document.getElementById('fkt-modal-title-text').textContent = `Faktur: ${po.no_po || po.no_faktur}`;
+  document.getElementById('a4-body').innerHTML = `
+    ${sc==='lunas' ? '<div class="a4-watermark"><div class="a4-watermark-inner">LUNAS</div></div>' : ''}
+    <div class="a4-letterhead">
+      <div class="a4-company">
+        <div class="a4-logo">
+          <div class="a4-logo-box">KP</div>
+          <div>
+            <div class="a4-company-name">TOKO KAMI POS ENTERPRISE</div>
+            <div class="a4-company-sub">PT Retail Berkah Nusantara • Cabang Utama<br>NPWP: 01.234.567.8-012.000 • Telp: 021-5550192</div>
+          </div>
+        </div>
+      </div>
+      <div class="a4-doc-title">
+        <h2>Faktur Pembelian</h2>
+        <div class="a4-doc-num">NO: ${po.no_po || po.no_faktur || '—'}</div>
+        <div class="a4-status-badge ${sc}">${STATUS_LABEL[sc]||sc}</div>
+      </div>
+    </div>
+    <div class="a4-meta-grid">
+      <div class="a4-meta-box">
+        <div class="a4-meta-lbl">Supplier / Pemasok</div>
+        <div class="a4-meta-val">${po.supplier?.nama || '—'}</div>
+        <div class="a4-meta-sub">NPWP: ${po.supplier?.npwp || '—'}</div>
+        <div class="a4-meta-sub">Ref Faktur: ${po.no_faktur || '—'}</div>
+      </div>
+      <div class="a4-meta-box">
+        <div class="a4-meta-lbl">Informasi Transaksi</div>
+        <div class="a4-meta-sub">Tanggal: <strong>${po.tanggal ? new Date(po.tanggal).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : '—'}</strong></div>
+        <div class="a4-meta-sub">Jatuh Tempo: <strong>${po.tanggal_jatuh_tempo ? new Date(po.tanggal_jatuh_tempo).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : '—'}</strong></div>
+        <div class="a4-meta-sub">Status: <strong>${STATUS_LABEL[sc]||sc}</strong></div>
+      </div>
+    </div>
+    <section class="a4-table" style="overflow-x:auto;">
+      <table class="a4-table">
+        <thead><tr>
+          <th class="center">No</th>
+          <th>Kode SKU</th>
+          <th>Deskripsi Barang</th>
+          <th class="right">Qty</th>
+          <th class="center">Satuan</th>
+          <th class="right">Harga Satuan</th>
+          <th class="right">Total (IDR)</th>
+        </tr></thead>
+        <tbody>${itemRows || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:14px;">Tidak ada detail barang</td></tr>'}</tbody>
+      </table>
+    </section>
+    <div class="a4-summary">
+      <div class="a4-summary-left">
+        <div class="a4-note-box">
+          <div class="a4-note-lbl">Catatan</div>
+          ${po.catatan || 'Barang telah diterima sesuai PO.'}
+        </div>
+        <div class="a4-terbilang">
+          <div class="a4-terbilang-lbl">Terbilang (Nilai Sah)</div>
+          <em>${po.terbilang || '—'}</em>
+        </div>
+      </div>
+      <div class="a4-total-box">
+        <div class="a4-total-row"><span>DPP (Dasar Pengenaan Pajak):</span><span>${fmt(dpp)}</span></div>
+        <div class="a4-total-row"><span>PPN Masukan (${po.ppn_persen||0}%):</span><span>${fmt(ppn)}</span></div>
+        <div class="a4-total-row"><span>Biaya Pengiriman:</span><span>Rp 0</span></div>
+        <div class="a4-grand">
+          <div><div class="a4-grand-lbl">Total Akhir Tagihan</div><div style="font-size:10px;color:#4ade80;font-weight:700;">GRAND TOTAL</div></div>
+          <div class="a4-grand-val">${fmt(total)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="a4-sig-grid">
+      <div class="a4-sig-box">
+        <div class="role">Bagian Gudang / Penerima</div>
+        <div class="signer">( _________________ )</div>
+        <div class="subtitle">Staf Logistik Inbound</div>
+      </div>
+      <div class="a4-sig-box">
+        <div class="role">Kasir / Pembelian</div>
+        <div class="signer">( Administrator POS )</div>
+        <div class="subtitle">Kasir Utama Cabang</div>
+      </div>
+      <div class="a4-sig-box">
+        <div class="role">Hormat Kami (Supplier)</div>
+        <div class="signer">( _________________ )</div>
+        <div class="subtitle">${po.supplier?.nama || '—'}</div>
+      </div>
+    </div>
+    <div class="a4-footer">
+      <span>Dicetak otomatis oleh KasirKu POS Enterprise</span>
+      <span style="font-family:monospace;">Hal 1 dari 1 • Dokumen Asli</span>
+    </div>
+  `;
+}
+
+function closeFktPreview() {
+  document.getElementById('fkt-preview-modal').classList.remove('show');
+}
+
+function openNewPoModal() {
+  document.getElementById('fkt-new-po-modal').classList.add('show');
+}
+
+function closeNewPoModal() {
+  document.getElementById('fkt-new-po-modal').classList.remove('show');
+}
+
+async function submitNewPo() {
+  const sup = document.getElementById('np-supplier').value;
+  const noFaktur = document.getElementById('np-no-faktur').value.trim();
+  if (!sup) { toast('Pilih supplier terlebih dahulu', 'error'); return; }
+  closeNewPoModal();
+  toast('✅ PO baru disiapkan — lanjut isi barang di tab Stok');
+}
+
+// Close modals on ESC
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeFktPreview(); closeNewPoModal(); }
+});
 
 /* ══════════ PWA ══════════ */
 if('serviceWorker' in navigator) {
