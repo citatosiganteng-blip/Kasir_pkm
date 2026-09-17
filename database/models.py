@@ -63,6 +63,45 @@ class Barang(Base):
         return self.stok <= self.stok_min
 
 
+class Pelanggan(Base):
+    __tablename__ = "pelanggan"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kode = Column(String(50), unique=True, nullable=False)
+    nama = Column(String(150), nullable=False)
+    telepon = Column(String(50), nullable=True)
+    alamat = Column(Text, nullable=True)
+    email = Column(String(100), nullable=True)
+    npwp = Column(String(50), nullable=True)
+    aktif = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    transaksi = relationship("Transaksi", back_populates="pelanggan")
+
+    def __repr__(self):
+        return f"<Pelanggan {self.kode} - {self.nama}>"
+
+
+class Supplier(Base):
+    __tablename__ = "supplier"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kode = Column(String(50), unique=True, nullable=False)
+    nama = Column(String(150), nullable=False)
+    kontak = Column(String(100), nullable=True)
+    telepon = Column(String(50), nullable=True)
+    alamat = Column(Text, nullable=True)
+    email = Column(String(100), nullable=True)
+    npwp = Column(String(50), nullable=True)
+    aktif = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    pembelian = relationship("Pembelian", back_populates="supplier")
+
+    def __repr__(self):
+        return f"<Supplier {self.kode} - {self.nama}>"
+
+
 class Transaksi(Base):
     __tablename__ = "transaksi"
 
@@ -70,20 +109,175 @@ class Transaksi(Base):
     no_invoice = Column(String(50), unique=True, nullable=False)
     tanggal = Column(DateTime, default=datetime.now)
     kasir_id = Column(Integer, ForeignKey("users.id"))
+    pelanggan_id = Column(Integer, ForeignKey("pelanggan.id"), nullable=True)
+    nama_pelanggan = Column(String(150), nullable=True)
+    alamat_pelanggan = Column(Text, nullable=True)
+    telepon_pelanggan = Column(String(50), nullable=True)
+    npwp_pelanggan = Column(String(50), nullable=True)
     total = Column(Float, default=0)
     diskon_total = Column(Float, default=0)
     bayar = Column(Float, default=0)
     kembalian = Column(Float, default=0)
     metode_bayar = Column(String(20), default="cash")  # cash / qris / transfer
     status = Column(String(20), default="selesai")  # selesai / void
+    status_bayar = Column(String(20), default="lunas")  # lunas / tempo
+    jatuh_tempo = Column(DateTime, nullable=True)
     catatan = Column(Text, nullable=True)
 
+    # Rincian Pajak (PPN / PPh)
+    dpp = Column(Float, default=0)
+    ppn_persen = Column(Float, default=0)
+    ppn_nominal = Column(Float, default=0)
+    pph_persen = Column(Float, default=0)
+    pph_nominal = Column(Float, default=0)
+    no_faktur_pajak = Column(String(50), nullable=True)
+
     kasir = relationship("User", back_populates="transaksi")
+    pelanggan = relationship("Pelanggan", back_populates="transaksi")
     detail = relationship("TransaksiDetail", back_populates="transaksi",
                           cascade="all, delete-orphan")
+    retur = relationship("ReturPenjualan", back_populates="transaksi",
+                         cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Transaksi {self.no_invoice}>"
+
+
+class ReturPenjualan(Base):
+    __tablename__ = "retur_penjualan"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    no_retur = Column(String(50), unique=True, nullable=False)  # RJ-YYYYMMDD-001
+    transaksi_id = Column(Integer, ForeignKey("transaksi.id"), nullable=False)
+    no_invoice = Column(String(50), nullable=False)
+    tanggal = Column(DateTime, default=datetime.now)
+    total_retur = Column(Float, default=0)
+    alasan = Column(Text, nullable=True)
+    metode_kembali = Column(String(20), default="cash")  # cash / potong_piutang / tukar_barang
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    transaksi = relationship("Transaksi", back_populates="retur")
+    user = relationship("User")
+    detail = relationship("ReturPenjualanDetail", back_populates="retur", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ReturPenjualan {self.no_retur} for {self.no_invoice}>"
+
+
+class ReturPenjualanDetail(Base):
+    __tablename__ = "retur_penjualan_detail"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    retur_id = Column(Integer, ForeignKey("retur_penjualan.id"), nullable=False)
+    barang_id = Column(Integer, ForeignKey("barang.id"), nullable=True)
+    kode_barang = Column(String(50), nullable=True)
+    nama_barang = Column(String(200), nullable=False)
+    qty = Column(Integer, default=1)
+    harga_satuan = Column(Float, default=0)
+    subtotal = Column(Float, default=0)
+
+    retur = relationship("ReturPenjualan", back_populates="detail")
+    barang = relationship("Barang")
+
+    def __repr__(self):
+        return f"<ReturPenjualanDetail {self.nama_barang} x{self.qty}>"
+
+
+class Pembelian(Base):
+    __tablename__ = "pembelian"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    no_faktur = Column(String(50), nullable=False)  # Nomor faktur dari vendor/supplier
+    no_po = Column(String(50), unique=True, nullable=False)  # Nomor PO internal toko
+    supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
+    tanggal = Column(DateTime, default=datetime.now)
+    jatuh_tempo = Column(DateTime, nullable=True)
+    subtotal = Column(Float, default=0)
+    dpp = Column(Float, default=0)
+    ppn_persen = Column(Float, default=0)
+    ppn_nominal = Column(Float, default=0)
+    pph_persen = Column(Float, default=0)
+    pph_nominal = Column(Float, default=0)
+    total = Column(Float, default=0)
+    status_bayar = Column(String(20), default="lunas")  # lunas / tempo
+    status_barang = Column(String(20), default="diterima")  # diterima / dipesan
+    metode_bayar = Column(String(20), default="transfer")
+    catatan = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    supplier = relationship("Supplier", back_populates="pembelian")
+    user = relationship("User")
+    detail = relationship("PembelianDetail", back_populates="pembelian",
+                          cascade="all, delete-orphan")
+    retur = relationship("ReturPembelian", back_populates="pembelian",
+                         cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Pembelian {self.no_po} ({self.no_faktur})>"
+
+
+class PembelianDetail(Base):
+    __tablename__ = "pembelian_detail"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pembelian_id = Column(Integer, ForeignKey("pembelian.id"))
+    barang_id = Column(Integer, ForeignKey("barang.id"), nullable=True)
+    kode_barang = Column(String(50), nullable=True)
+    nama_barang = Column(String(200), nullable=False)
+    qty = Column(Integer, default=1)
+    harga_beli = Column(Float, default=0)
+    subtotal = Column(Float, default=0)
+
+    pembelian = relationship("Pembelian", back_populates="detail")
+    barang = relationship("Barang")
+
+    def __repr__(self):
+        return f"<PembelianDetail {self.nama_barang} x{self.qty}>"
+
+
+class ReturPembelian(Base):
+    __tablename__ = "retur_pembelian"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    no_retur = Column(String(50), unique=True, nullable=False)  # RB-YYYYMMDD-001
+    pembelian_id = Column(Integer, ForeignKey("pembelian.id"), nullable=False)
+    no_po = Column(String(50), nullable=False)
+    supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
+    tanggal = Column(DateTime, default=datetime.now)
+    total_retur = Column(Float, default=0)
+    alasan = Column(Text, nullable=True)
+    metode_kembali = Column(String(20), default="potong_hutang")  # potong_hutang / refund_cash
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    pembelian = relationship("Pembelian", back_populates="retur")
+    supplier = relationship("Supplier")
+    user = relationship("User")
+    detail = relationship("ReturPembelianDetail", back_populates="retur", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ReturPembelian {self.no_retur} for {self.no_po}>"
+
+
+class ReturPembelianDetail(Base):
+    __tablename__ = "retur_pembelian_detail"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    retur_id = Column(Integer, ForeignKey("retur_pembelian.id"), nullable=False)
+    barang_id = Column(Integer, ForeignKey("barang.id"), nullable=True)
+    kode_barang = Column(String(50), nullable=True)
+    nama_barang = Column(String(200), nullable=False)
+    qty = Column(Integer, default=1)
+    harga_beli = Column(Float, default=0)
+    subtotal = Column(Float, default=0)
+
+    retur = relationship("ReturPembelian", back_populates="detail")
+    barang = relationship("Barang")
+
+    def __repr__(self):
+        return f"<ReturPembelianDetail {self.nama_barang} x{self.qty}>"
 
 
 class TransaksiDetail(Base):

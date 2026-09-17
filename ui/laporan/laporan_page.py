@@ -302,6 +302,13 @@ class LaporanPage(QWidget):
         btn_export_csv.clicked.connect(self._export_csv)
         header_row.addWidget(btn_export_csv)
 
+        btn_export_tax = QPushButton("🏛️ Rekap Pajak (Excel)")
+        btn_export_tax.setObjectName("btn_secondary")
+        btn_export_tax.setFixedHeight(36)
+        btn_export_tax.setCursor(QCursor(Qt.PointingHandCursor))
+        btn_export_tax.clicked.connect(self._export_tax_excel)
+        header_row.addWidget(btn_export_tax)
+
         layout.addLayout(header_row)
 
         # ── PERIOD FILTER TABS ────────────────────────────────────────────────
@@ -1214,6 +1221,47 @@ class LaporanPage(QWidget):
             )
         except Exception as e:
             QMessageBox.critical(parent_w, "Error Export CSV", f"Gagal mengekspor CSV:\n{e}")
+
+    def _export_tax_excel(self):
+        """Ekspor Rekapitulasi Pajak PPN Masukan, Keluaran, dan Selisih ke Excel"""
+        if self._dt_from is None:
+            self._load_all()
+
+        parent_w = self.window() if hasattr(self, "window") else None
+        default_dir = os.path.join(os.path.expanduser("~"), "Downloads")
+        os.makedirs(default_dir, exist_ok=True)
+        default_filename = f"rekap_pajak_ppn_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        default_path = os.path.join(default_dir, default_filename)
+
+        filepath, _ = QFileDialog.getSaveFileName(
+            parent_w,
+            "Simpan Rekapitulasi Pajak PPN & PPh (Excel)",
+            default_path,
+            "Excel Files (*.xlsx);;All Files (*)"
+        )
+        if not filepath:
+            return
+
+        try:
+            from services.invoice_pdf_service import InvoicePdfService
+            ok = InvoicePdfService.export_tax_report_to_excel(self._dt_from, self._dt_to, filepath)
+            if ok:
+                reply = QMessageBox.information(
+                    parent_w,
+                    "Export Pajak Berhasil",
+                    f"Rekapitulasi SPT Pajak (PPN & PPh) berhasil diekspor ke:\n{filepath}\n\nApakah Anda ingin membuka filenya?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                if reply == QMessageBox.Yes:
+                    try:
+                        os.startfile(filepath)
+                    except Exception:
+                        pass
+            else:
+                QMessageBox.critical(parent_w, "Error Export Pajak", "Gagal mengekspor laporan pajak ke Excel.")
+        except Exception as e:
+            QMessageBox.critical(parent_w, "Error Export Pajak", f"Terjadi kesalahan saat ekspor pajak:\n{e}")
 
     def refresh(self):
         self._load_all()

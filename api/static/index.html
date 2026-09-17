@@ -470,6 +470,22 @@ async function api(method, path, body=null) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(API + path, opts);
   const data = await res.json().catch(() => ({}));
+
+  if (res.status === 401 && path !== '/api/auth/login') {
+    // Interceptor: JWT expired / invalid token
+    token = '';
+    me = null;
+    cart = {};
+    localStorage.removeItem('kk_token');
+    localStorage.removeItem('kk_me');
+    document.getElementById('screen-main').classList.remove('active');
+    document.getElementById('screen-login').classList.add('active');
+    const err = document.getElementById('login-err');
+    if (err) err.textContent = 'Sesi login Anda telah berakhir. Silakan login kembali.';
+    toast('Sesi login telah berakhir', 'error');
+    throw new Error('Sesi login berakhir. Silakan login kembali.');
+  }
+
   if (!res.ok) {
     const msg = data?.detail?.message || data?.detail || 'Terjadi kesalahan';
     throw new Error(typeof msg==='string' ? msg : JSON.stringify(msg));

@@ -32,10 +32,13 @@ app = FastAPI(
 )
 
 # ──────────────────────────── CORS ────────────────────────────
-# Izinkan semua origin di LAN (WiFi lokal)
+# Default "*" untuk kemudahan akses WiFi lokal / LAN; dapat dibatasi lewat env var
+_cors_env = os.environ.get("KASIRKU_ALLOWED_ORIGINS", "*").strip()
+_allowed_origins = [orig.strip() for orig in _cors_env.split(",") if orig.strip()] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # Aman untuk LAN; batasi di production
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,10 +50,12 @@ from api.routers.barang import router as barang_router
 from api.routers.transaksi import router as transaksi_router
 from api.routers.laporan import router as laporan_router
 from api.routers.pengaturan import pengeluaran_router, pengaturan_router
+from api.routers.retur import router as retur_router
 
 app.include_router(auth_router)
 app.include_router(barang_router)
 app.include_router(transaksi_router)
+app.include_router(retur_router)
 app.include_router(laporan_router)
 app.include_router(pengeluaran_router)
 app.include_router(pengaturan_router)

@@ -11,3 +11,4 @@ ENV/
 .vscode/
 .idea/
 .pytest_cache/
+*.pdf

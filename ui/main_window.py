@@ -117,6 +117,7 @@ class MainWindow(QMainWindow):
             ("🏠", "Beranda/Kasir", "kasir"),
             ("📋", "Transaksi", "riwayat"),
             ("📦", "Barang", "barang"),
+            ("🧾", "Faktur/PO", "pembelian"),
             ("📊", "Laporan", "laporan"),
         ]
 
@@ -246,12 +247,14 @@ class MainWindow(QMainWindow):
         from ui.transaksi.kasir_page import KasirPage
         from ui.transaksi.riwayat_page import RiwayatTransaksiPage
         from ui.pengeluaran.pengeluaran_page import PengeluaranPage
+        from ui.pembelian.pembelian_page import PembelianPage
         from ui.laporan.laporan_page import LaporanPage
 
         self._pages["dashboard"] = DashboardPage(on_navigate=self._navigate)
         self._pages["kasir"] = KasirPage()
         self._pages["riwayat"] = RiwayatTransaksiPage()
         self._pages["barang"] = BarangPage()
+        self._pages["pembelian"] = PembelianPage()
         self._pages["pengeluaran"] = PengeluaranPage()
         self._pages["laporan"] = LaporanPage()
 

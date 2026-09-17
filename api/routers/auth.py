@@ -22,6 +22,11 @@ def login(body: LoginRequest):
     """
     Login dengan username + password.
     Return JWT access token yang valid 24 jam.
+
+    auth_manager.login() digunakan HANYA untuk verifikasi password dan
+    mencatat percobaan gagal. User data diambil langsung dari DB setelahnya
+    — tidak bergantung pada auth_manager.current_user (singleton state)
+    yang tidak aman untuk concurrent API requests.
     """
     success, message = auth_manager.login(body.username, body.password)
     if not success:
@@ -30,19 +35,23 @@ def login(body: LoginRequest):
             detail=message,
         )
 
-    user = auth_manager.current_user
-    if user is None:
-        raise HTTPException(status_code=500, detail="Login state error")
+    # Ambil data user langsung dari DB — thread-safe, tidak pakai singleton state
+    with db.get_session() as session:
+        user = session.query(User).filter_by(
+            username=body.username.strip(), aktif=True
+        ).first()
+        if user is None:
+            raise HTTPException(status_code=500, detail="Login state error")
 
-    token = create_token(user.id, user.username, user.role)
-    return TokenResponse(
-        access_token=token,
-        user_id=user.id,
-        username=user.username,
-        role=user.role,
-        nama_lengkap=user.nama_lengkap,
-        must_change_password=user.must_change_password or False,
-    )
+        token = create_token(user.id, user.username, user.role)
+        return TokenResponse(
+            access_token=token,
+            user_id=user.id,
+            username=user.username,
+            role=user.role,
+            nama_lengkap=user.nama_lengkap,
+            must_change_password=user.must_change_password or False,
+        )
 
 
 @router.get("/me", response_model=UserOut)

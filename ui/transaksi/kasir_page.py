@@ -6,7 +6,7 @@ Clean, modern, and professional POS interface matching reference design
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFrame, QScrollArea, QGridLayout, QSizePolicy,
-    QMessageBox, QDialog, QApplication, QButtonGroup
+    QMessageBox, QDialog, QApplication, QButtonGroup, QFileDialog
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QSize
 from PyQt5.QtGui import QFont, QColor, QCursor
@@ -14,9 +14,13 @@ from PyQt5.QtGui import QFont, QColor, QCursor
 from database.db import db
 from database.models import Barang, Transaksi, TransaksiDetail
 from auth.auth_manager import auth
-from utils.helpers import format_rupiah, generate_invoice_number, format_datetime
+from utils.helpers import (
+    format_rupiah, generate_invoice_number, format_datetime,
+    generate_tax_invoice_number
+)
 from services.printer_service import PrinterService
 from services.drawer_service import DrawerService
+from services.invoice_pdf_service import InvoicePdfService
 
 
 class CartItem:
@@ -1071,11 +1075,17 @@ class KasirPage(QWidget):
                 row_widget.remove_clicked.connect(lambda it=item: self._remove_from_cart(it))
                 self.cart_list_layout.addWidget(row_widget)
 
-        # Hitung Subtotal, Pajak 10%, Total
+        # Hitung Subtotal, Pajak PPN dinamis dari pengaturan, Total
+        try:
+            ppn_rate = float(db.get_setting("tax_default_ppn", "11")) / 100.0
+        except ValueError:
+            ppn_rate = 0.11
+
         subtotal = sum(i.subtotal for i in self.cart)
-        pajak = subtotal * 0.10 if subtotal > 0 else 0
+        pajak = subtotal * ppn_rate if subtotal > 0 else 0
         total = subtotal + pajak
 
+        self.tax_lbl.setText(f"PPN ({int(ppn_rate * 100)}%)")
         self.subtotal_val_lbl.setText(format_rupiah(subtotal))
         self.tax_val_lbl.setText(format_rupiah(pajak))
         self.total_val_lbl.setText(format_rupiah(total))
@@ -1088,8 +1098,13 @@ class KasirPage(QWidget):
     # =========================================================================
 
     def _get_grand_total(self) -> float:
+        try:
+            ppn_rate = float(db.get_setting("tax_default_ppn", "11")) / 100.0
+        except ValueError:
+            ppn_rate = 0.11
+
         subtotal = sum(i.subtotal for i in self.cart)
-        pajak = subtotal * 0.10 if subtotal > 0 else 0
+        pajak = subtotal * ppn_rate if subtotal > 0 else 0
         return subtotal + pajak
 
     def _on_quick_cash_clicked(self, val):
@@ -1145,19 +1160,33 @@ class KasirPage(QWidget):
                 if stok_issues:
                     raise ValueError("\n\n".join(stok_issues))
 
-                # Generate invoice
+                # Generate invoice & tax invoice number
                 no_invoice = generate_invoice_number(session)
+                try:
+                    ppn_rate = float(db.get_setting("tax_default_ppn", "11"))
+                except ValueError:
+                    ppn_rate = 11.0
 
-                # Simpan transaksi
+                subtotal = sum(i.subtotal for i in self.cart)
+                ppn_nominal = subtotal * (ppn_rate / 100.0) if subtotal > 0 else 0
+                is_pkp = db.get_setting("tax_is_pkp", "0") == "1"
+                no_faktur_pajak = generate_tax_invoice_number(session) if is_pkp else None
+
+                # Simpan transaksi dengan rincian DPP & PPN
                 transaksi = Transaksi(
                     no_invoice=no_invoice,
                     kasir_id=auth.current_user.id if auth.current_user else None,
                     total=total,
                     diskon_total=diskon_total,
+                    dpp=subtotal,
+                    ppn_persen=ppn_rate,
+                    ppn_nominal=ppn_nominal,
+                    no_faktur_pajak=no_faktur_pajak,
                     bayar=bayar,
                     kembalian=kembalian,
                     metode_bayar=metode,
-                    status="selesai"
+                    status="selesai",
+                    status_bayar="lunas"
                 )
                 session.add(transaksi)
                 session.flush()
@@ -1202,7 +1231,7 @@ class KasirPage(QWidget):
         except Exception:
             pass
 
-        # Tampilkan konfirmasi sukses yang bersih
+        # Tampilkan konfirmasi sukses yang bersih dengan opsi Cetak Faktur PDF
         msg = QMessageBox(self)
         msg.setWindowTitle("Transaksi Berhasil ✅")
         msg.setIcon(QMessageBox.Information)
@@ -1212,7 +1241,12 @@ class KasirPage(QWidget):
             f"Bayar ({metode}): {format_rupiah(bayar)}\n"
             f"Kembalian: {format_rupiah(kembalian)}"
         )
+        btn_ok = msg.addButton("Selesai", QMessageBox.AcceptRole)
+        btn_pdf = msg.addButton("📄 Cetak Faktur (A4 PDF)", QMessageBox.ActionRole)
         msg.exec_()
+
+        if msg.clickedButton() == btn_pdf:
+            self._export_faktur_pdf(no_invoice)
 
         # Reset cart & refresh
         self.cart.clear()
@@ -1221,6 +1255,28 @@ class KasirPage(QWidget):
         self._update_cart_display()
         self._load_barang()
         self.transaction_completed.emit()
+
+    def _export_faktur_pdf(self, no_invoice: str):
+        """Ekspor faktur penjualan ke file PDF A4"""
+        if not no_invoice:
+            return
+        with db.get_session() as session:
+            t = session.query(Transaksi).filter_by(no_invoice=no_invoice).first()
+            if not t:
+                return
+            html = InvoicePdfService.generate_sales_invoice_html(t)
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Simpan Faktur Penjualan (PDF)",
+                f"Faktur_Penjualan_{no_invoice}.pdf",
+                "PDF Files (*.pdf)"
+            )
+            if file_path:
+                ok = InvoicePdfService.save_html_to_pdf(html, file_path)
+                if ok:
+                    QMessageBox.information(self, "Sukses", f"Faktur Penjualan A4 PDF berhasil disimpan ke:\n{file_path}")
+                else:
+                    QMessageBox.critical(self, "Gagal", "Gagal menyimpan file PDF.")
 
     def _print_receipt(self, no_invoice: str):
         """Cetak struk transaksi"""

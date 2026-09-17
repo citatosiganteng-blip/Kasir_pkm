@@ -181,8 +181,85 @@ class PengaturanUpdate(BaseModel):
     nilai: Optional[str] = None
 
 
+# ──────────────────────────── RETUR ────────────────────────────
+
+class ReturItemCreate(BaseModel):
+    barang_id: Optional[int] = None
+    qty: int = Field(gt=0)
+
+
+class ReturPenjualanCreate(BaseModel):
+    transaksi_id: int
+    items: List[ReturItemCreate]
+    alasan: str
+    metode_kembali: str = "cash"  # cash / potong_piutang / tukar_barang
+
+
+class ReturDetailOut(BaseModel):
+    id: int
+    barang_id: Optional[int] = None
+    kode_barang: Optional[str] = None
+    nama_barang: str
+    qty: int
+    harga_satuan: float
+    subtotal: float
+
+    model_config = {"from_attributes": True}
+
+
+class ReturPenjualanOut(BaseModel):
+    id: int
+    no_retur: str
+    transaksi_id: int
+    no_invoice: str
+    tanggal: datetime
+    total_retur: float
+    alasan: Optional[str] = None
+    metode_kembali: str
+    user_id: Optional[int] = None
+    detail: List[ReturDetailOut] = []
+
+    model_config = {"from_attributes": True}
+
+
+class ReturPembelianCreate(BaseModel):
+    pembelian_id: int
+    items: List[ReturItemCreate]
+    alasan: str
+    metode_kembali: str = "potong_hutang"  # potong_hutang / refund_cash
+
+
+class ReturPembelianDetailOut(BaseModel):
+    id: int
+    barang_id: Optional[int] = None
+    kode_barang: Optional[str] = None
+    nama_barang: str
+    qty: int
+    harga_beli: float
+    subtotal: float
+
+    model_config = {"from_attributes": True}
+
+
+class ReturPembelianOut(BaseModel):
+    id: int
+    no_retur: str
+    pembelian_id: int
+    no_po: str
+    supplier_id: Optional[int] = None
+    tanggal: datetime
+    total_retur: float
+    alasan: Optional[str] = None
+    metode_kembali: str
+    user_id: Optional[int] = None
+    detail: List[ReturPembelianDetailOut] = []
+
+    model_config = {"from_attributes": True}
+
+
 # ──────────────────────────── GENERIC ────────────────────────────
 
 class MessageResponse(BaseModel):
     message: str
     success: bool = True
+

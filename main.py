@@ -99,8 +99,18 @@ class ApiServerThread(QThread):
             return "127.0.0.1"
 
 
+# Module-level references ke background threads — mencegah garbage collection
+# tanpa menyimpan state ke atribut QApplication yang bukan bagian dari API publiknya.
+_backup_worker: "StartupBackupWorker | None" = None
+_api_worker: "ApiServerThread | None" = None
+_login_window = None
+_main_window = None
+
+
 def main():
     """Entry point utama"""
+    global _backup_worker, _api_worker
+
     # Set environment untuk Windows DPI scaling
     if hasattr(Qt, "AA_EnableHighDpiScaling"):
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -135,14 +145,12 @@ def main():
         sys.exit(1)
 
     # Jalankan backup di background thread (non-blocking)
-    backup_worker = StartupBackupWorker()
-    backup_worker.start()
-    app._backup_worker = backup_worker  # Cegah garbage collection
+    _backup_worker = StartupBackupWorker()
+    _backup_worker.start()
 
     # Jalankan API server di background thread (non-blocking)
-    api_worker = ApiServerThread()
-    api_worker.start()
-    app._api_worker = api_worker  # Cegah garbage collection
+    _api_worker = ApiServerThread()
+    _api_worker.start()
 
     # Tampilkan login window
     show_login(app)
@@ -152,24 +160,28 @@ def main():
 
 def show_login(app: QApplication):
     """Tampilkan login window"""
+    global _login_window, _main_window
+
     from ui.login_window import LoginWindow
     from ui.main_window import MainWindow
 
     login = LoginWindow()
-    app._login_window = login
+    _login_window = login
 
     def on_login_success():
+        global _login_window, _main_window
         login.close()
-        app._login_window = None
+        _login_window = None
         main_window = MainWindow()
-        app._main_window = main_window
+        _main_window = main_window
         main_window.show()
         main_window.logout_requested.connect(lambda: _on_logout(app))
 
     def _on_logout(app_inst):
-        if hasattr(app_inst, "_main_window") and app_inst._main_window:
-            app_inst._main_window.close()
-            app_inst._main_window = None
+        global _main_window
+        if _main_window is not None:
+            _main_window.close()
+            _main_window = None
         show_login(app_inst)
 
     login.login_success.connect(on_login_success)

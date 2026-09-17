@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QHeaderView,
     QFrame, QComboBox, QMessageBox, QDialog, QDateEdit,
-    QTextEdit, QAbstractItemView, QSizePolicy, QSplitter, QScrollArea
+    QTextEdit, QAbstractItemView, QSizePolicy, QSplitter, QScrollArea,
+    QFileDialog
 )
 from PyQt5.QtCore import Qt, QDate, QTimer
 from PyQt5.QtGui import QColor, QFont, QCursor
@@ -18,6 +19,8 @@ from database.models import Transaksi, TransaksiDetail
 from auth.auth_manager import auth
 from utils.helpers import format_rupiah, format_datetime, format_tanggal
 from services.printer_service import PrinterService
+from services.invoice_pdf_service import InvoicePdfService
+from ui.transaksi.retur_penjualan_dialog import ReturPenjualanDialog
 from datetime import datetime, date, timedelta
 
 
@@ -202,13 +205,29 @@ class RiwayatTransaksiPage(QWidget):
         self.detail_text.setPlaceholderText("Pilih transaksi untuk melihat detail")
         detail_layout.addWidget(self.detail_text)
 
-        self.btn_reprint = QPushButton("🖨 Cetak Ulang")
+        self.btn_reprint = QPushButton("🖨 Cetak Struk POS")
         self.btn_reprint.setObjectName("btn_secondary")
         self.btn_reprint.setFixedHeight(40)
         self.btn_reprint.setEnabled(False)
         self.btn_reprint.setCursor(QCursor(Qt.PointingHandCursor))
         self.btn_reprint.clicked.connect(self._reprint)
         detail_layout.addWidget(self.btn_reprint)
+
+        self.btn_faktur_pdf = QPushButton("📄 Cetak Faktur (A4 / PDF)")
+        self.btn_faktur_pdf.setObjectName("btn_primary")
+        self.btn_faktur_pdf.setFixedHeight(40)
+        self.btn_faktur_pdf.setEnabled(False)
+        self.btn_faktur_pdf.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_faktur_pdf.clicked.connect(self._export_faktur_pdf)
+        detail_layout.addWidget(self.btn_faktur_pdf)
+
+        self.btn_retur = QPushButton("↩️ Retur Barang")
+        self.btn_retur.setObjectName("btn_warning")
+        self.btn_retur.setFixedHeight(40)
+        self.btn_retur.setEnabled(False)
+        self.btn_retur.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_retur.clicked.connect(self._open_retur_dialog)
+        detail_layout.addWidget(self.btn_retur)
 
         if auth.is_admin:
             self.btn_void = QPushButton("❌ Void / Batalkan")
@@ -595,23 +614,79 @@ class RiwayatTransaksiPage(QWidget):
                 lines.append(f"  = {format_rupiah(d.subtotal)}")
                 lines.append("")
 
+            cust_name = t.nama_pelanggan or (t.pelanggan.nama if t.pelanggan else "-")
+            cust_npwp = t.npwp_pelanggan or (t.pelanggan.npwp if t.pelanggan else "-")
+            dpp_val = t.dpp if (t.dpp and t.dpp > 0) else t.total
+
             lines += [
                 f"{'─'*35}",
-                f"Subtotal : {format_rupiah(t.total + t.diskon_total)}",
-                f"Diskon   : - {format_rupiah(t.diskon_total)}",
+                f"Pelanggan: {cust_name}",
+                f"NPWP     : {cust_npwp}",
+                f"Status   : {(t.status_bayar or 'lunas').upper()}",
+                f"{'─'*35}",
+                f"Subtotal (DPP): {format_rupiah(dpp_val)}",
+            ]
+            if t.diskon_total > 0:
+                lines.append(f"Diskon   : - {format_rupiah(t.diskon_total)}")
+            if (t.ppn_nominal or 0) > 0:
+                lines.append(f"PPN ({t.ppn_persen:.0f}%) : + {format_rupiah(t.ppn_nominal)}")
+            if (t.pph_nominal or 0) > 0:
+                lines.append(f"PPh ({t.pph_persen:.1f}%): - {format_rupiah(t.pph_nominal)}")
+
+            lines += [
                 f"TOTAL    : {format_rupiah(t.total)}",
                 f"Bayar    : {format_rupiah(t.bayar)}",
                 f"Kembali  : {format_rupiah(t.kembalian)}",
                 f"{'='*35}",
             ]
 
+            if t.retur:
+                lines += [
+                    f"RIWAYAT RETUR ({len(t.retur)}x):"
+                ]
+                for r in t.retur:
+                    lines.append(f" • {r.no_retur}: {format_rupiah(r.total_retur)} ({r.metode_kembali})")
+                lines.append(f"{'='*35}")
+
             self.detail_text.setPlainText("\n".join(lines))
             self._selected_invoice = t.no_invoice
             self._selected_id = transaksi_id
             self._selected_status = t.status
             self.btn_reprint.setEnabled(True)
+            self.btn_faktur_pdf.setEnabled(True)
+            self.btn_retur.setEnabled(t.status == "selesai")
             if auth.is_admin and hasattr(self, "btn_void"):
                 self.btn_void.setEnabled(t.status == "selesai")
+
+    def _export_faktur_pdf(self):
+        if not self._selected_invoice:
+            return
+        with db.get_session() as session:
+            t = session.query(Transaksi).filter_by(no_invoice=self._selected_invoice).first()
+            if not t:
+                QMessageBox.warning(self, "Error", "Transaksi tidak ditemukan.")
+                return
+
+            html = InvoicePdfService.generate_sales_invoice_html(t)
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Simpan Faktur Penjualan (PDF)",
+                f"Faktur_Penjualan_{t.no_invoice}.pdf",
+                "PDF Files (*.pdf)"
+            )
+            if file_path:
+                ok = InvoicePdfService.save_html_to_pdf(html, file_path)
+                if ok:
+                    QMessageBox.information(self, "Sukses", f"Faktur A4 PDF berhasil disimpan ke:\n{file_path}")
+                else:
+                    QMessageBox.critical(self, "Gagal", "Gagal menyimpan file PDF.")
+
+    def _open_retur_dialog(self):
+        if not self._selected_id:
+            return
+        dlg = ReturPenjualanDialog(self._selected_id, self)
+        dlg.retur_processed.connect(self._load_data)
+        dlg.exec_()
 
     def _reprint(self):
         if self._selected_invoice:

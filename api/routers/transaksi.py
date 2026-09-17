@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, Query
 from database.db import db
 from database.models import Barang, Transaksi, TransaksiDetail
 from utils.helpers import generate_invoice_number
-from api.deps import get_current_user_payload, get_current_user_id
+from api.deps import get_current_user_payload, get_current_user_id, require_admin
 from api.schemas import TransaksiCreate, TransaksiOut, TransaksiDetailOut
 
 router = APIRouter(prefix="/api/transaksi", tags=["transaksi"])
@@ -169,7 +169,7 @@ def get_transaksi(transaksi_id: int, _: dict = Depends(get_current_user_payload)
 @router.post("/{transaksi_id}/void", response_model=TransaksiOut)
 def void_transaksi(
     transaksi_id: int,
-    _: dict = Depends(get_current_user_payload),
+    _: dict = Depends(require_admin),
 ):
     """
     Void / batalkan transaksi. Stok dikembalikan.

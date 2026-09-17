@@ -38,14 +38,59 @@ class BackupService:
             print(f"[BackupService] Error backup: {e}")
             return None
 
+    # Jumlah maksimum file backup yang disimpan, terlepas dari usia file.
+    # Ini mencegah penumpukan jika backup dibuat sangat sering.
+    MAX_BACKUP_COUNT = 30
+
+    def _parse_backup_timestamp(self, filename: str) -> datetime | None:
+        """
+        Parse timestamp dari nama file backup.
+        Format: kasirku_backup_YYYYMMDD_HHMMSS.db
+        Menggunakan nama file (bukan mtime) agar tidak terpengaruh
+        metadata saat file di-copy oleh shutil.copy2.
+        """
+        try:
+            # Ambil bagian YYYYMMDD_HHMMSS dari nama file
+            stem = Path(filename).stem  # kasirku_backup_20260917_180038
+            parts = stem.split("_")     # ['kasirku', 'backup', '20260917', '180038']
+            if len(parts) >= 4:
+                dt_str = f"{parts[2]}_{parts[3]}"
+                return datetime.strptime(dt_str, "%Y%m%d_%H%M%S")
+        except (ValueError, IndexError):
+            pass
+        return None
+
     def _cleanup_old_backups(self):
-        """Hapus backup yang sudah lebih dari BACKUP_KEEP_DAYS hari"""
+        """
+        Hapus backup berdasarkan dua kriteria:
+        1. Usianya melebihi BACKUP_KEEP_DAYS (dihitung dari nama file, bukan mtime)
+        2. Jumlah total backup melebihi MAX_BACKUP_COUNT (hapus yang paling lama)
+        """
         try:
             cutoff = datetime.now() - timedelta(days=config.BACKUP_KEEP_DAYS)
-            for backup_file in self.backup_dir.glob("kasirku_backup_*.db"):
-                if backup_file.stat().st_mtime < cutoff.timestamp():
+            all_backups = sorted(
+                self.backup_dir.glob("kasirku_backup_*.db"),
+                key=lambda f: self._parse_backup_timestamp(f.name) or datetime.min,
+                reverse=True,  # Terbaru di depan
+            )
+
+            # Kriteria 1: hapus berdasarkan usia (parse dari nama file)
+            for backup_file in all_backups:
+                file_ts = self._parse_backup_timestamp(backup_file.name)
+                if file_ts and file_ts < cutoff:
                     backup_file.unlink()
-                    print(f"[BackupService] Hapus backup lama: {backup_file.name}")
+                    print(f"[BackupService] Hapus backup kadaluarsa: {backup_file.name}")
+
+            # Kriteria 2: hapus yang paling lama jika masih melebihi batas jumlah
+            remaining = sorted(
+                self.backup_dir.glob("kasirku_backup_*.db"),
+                key=lambda f: self._parse_backup_timestamp(f.name) or datetime.min,
+                reverse=True,
+            )
+            if len(remaining) > self.MAX_BACKUP_COUNT:
+                for backup_file in remaining[self.MAX_BACKUP_COUNT:]:
+                    backup_file.unlink()
+                    print(f"[BackupService] Hapus backup (limit {self.MAX_BACKUP_COUNT}): {backup_file.name}")
         except Exception as e:
             print(f"[BackupService] Cleanup error: {e}")
 

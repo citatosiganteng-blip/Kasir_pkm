@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFrame, QComboBox, QMessageBox, QGroupBox,
     QFormLayout, QTabWidget, QTableWidget, QTableWidgetItem,
-    QHeaderView, QSpinBox, QFileDialog
+    QHeaderView, QSpinBox, QDoubleSpinBox, QFileDialog
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QCursor
@@ -40,6 +40,7 @@ class SettingsPage(QWidget):
         tabs = QTabWidget()
 
         tabs.addTab(self._create_store_tab(), "🏪 Info Toko")
+        tabs.addTab(self._create_tax_tab(), "🏛️ Pajak & Faktur")
         tabs.addTab(self._create_printer_tab(), "🖨️ Printer")
         tabs.addTab(self._create_backup_tab(), "💾 Backup")
         tabs.addTab(self._create_drawer_tab(), "🗄️ Cash Drawer")
@@ -102,6 +103,69 @@ class SettingsPage(QWidget):
         layout.addLayout(form)
         layout.addStretch()
         layout.addWidget(self._save_btn(self._save_store))
+        return w
+
+    def _create_tax_tab(self) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        info_lbl = QLabel("Pengaturan status perpajakan (PPN/PPh) dan identitas faktur resmi toko.")
+        info_lbl.setStyleSheet("color: #64748B; font-size: 12px; background: transparent;")
+        layout.addWidget(info_lbl)
+
+        form = QFormLayout()
+        form.setSpacing(12)
+        form.setLabelAlignment(Qt.AlignRight)
+
+        self.tax_pkp_combo = QComboBox()
+        self.tax_pkp_combo.addItems(["Non-PKP (Bukan Pengusaha Kena Pajak)", "PKP (Pengusaha Kena Pajak)"])
+        self.tax_pkp_combo.setFixedHeight(40)
+
+        self.tax_npwp_input = self._input("Contoh: 01.234.567.8-901.000")
+        self.tax_nama_pkp_input = self._input("Nama Perusahaan / Wajib Pajak terdaftar")
+
+        self.tax_ppn_spin = QDoubleSpinBox()
+        self.tax_ppn_spin.setRange(0, 100)
+        self.tax_ppn_spin.setValue(11.0)
+        self.tax_ppn_spin.setSuffix(" %")
+        self.tax_ppn_spin.setFixedHeight(40)
+
+        self.tax_pph_spin = QDoubleSpinBox()
+        self.tax_pph_spin.setRange(0, 100)
+        self.tax_pph_spin.setValue(0.0)
+        self.tax_pph_spin.setSuffix(" %")
+        self.tax_pph_spin.setFixedHeight(40)
+
+        # Info Bank untuk Faktur Penjualan A4
+        self.bank_name_input = self._input("Nama Bank (misal: BCA, Mandiri, BRI)")
+        self.bank_acc_input = self._input("Nomor Rekening")
+        self.bank_holder_input = self._input("Atas Nama Pemilik Rekening")
+
+        form.addRow(self._label("Status Perpajakan:"), self.tax_pkp_combo)
+        form.addRow(self._label("NPWP Toko/Perusahaan:"), self.tax_npwp_input)
+        form.addRow(self._label("Nama PKP Terdaftar:"), self.tax_nama_pkp_input)
+        form.addRow(self._label("Tarif PPN Standar:"), self.tax_ppn_spin)
+        form.addRow(self._label("Tarif PPh Standar:"), self.tax_pph_spin)
+
+        # Section Bank
+        bank_title = QLabel("💳 Rekening Bank Pembayaran (Tercetak di Faktur A4)")
+        bank_title.setStyleSheet("font-size: 13px; font-weight: 700; margin-top: 10px; color: #1E3A8A;")
+        layout.addLayout(form)
+        layout.addWidget(bank_title)
+
+        form_bank = QFormLayout()
+        form_bank.setSpacing(12)
+        form_bank.setLabelAlignment(Qt.AlignRight)
+        form_bank.addRow(self._label("Nama Bank:"), self.bank_name_input)
+        form_bank.addRow(self._label("No. Rekening:"), self.bank_acc_input)
+        form_bank.addRow(self._label("Atas Nama:"), self.bank_holder_input)
+        layout.addLayout(form_bank)
+
+        layout.addStretch()
+        layout.addWidget(self._save_btn(self._save_tax))
         return w
 
     def _create_printer_tab(self) -> QWidget:
@@ -241,6 +305,21 @@ class SettingsPage(QWidget):
         if idx_w >= 0:
             self.printer_width_combo.setCurrentIndex(idx_w)
 
+        # Load Pengaturan Pajak & Rekening
+        is_pkp = db.get_setting("tax_is_pkp", "0")
+        self.tax_pkp_combo.setCurrentIndex(1 if is_pkp == "1" else 0)
+        self.tax_npwp_input.setText(db.get_setting("tax_npwp", ""))
+        self.tax_nama_pkp_input.setText(db.get_setting("tax_nama_pkp", ""))
+        try:
+            self.tax_ppn_spin.setValue(float(db.get_setting("tax_default_ppn", "11")))
+            self.tax_pph_spin.setValue(float(db.get_setting("tax_default_pph", "0")))
+        except ValueError:
+            pass
+
+        self.bank_name_input.setText(db.get_setting("store_bank_name", "BCA"))
+        self.bank_acc_input.setText(db.get_setting("store_bank_account", ""))
+        self.bank_holder_input.setText(db.get_setting("store_bank_holder", ""))
+
     def _browse_qris(self):
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Pilih Gambar QRIS Toko", "", "Image Files (*.png *.jpg *.jpeg *.bmp)"
@@ -255,6 +334,18 @@ class SettingsPage(QWidget):
         db.set_setting("store_tagline", self.store_tagline_input.text().strip())
         db.set_setting("qris_image_path", self.qris_path_input.text().strip())
         QMessageBox.information(self, "Tersimpan", "Pengaturan toko & QRIS berhasil disimpan!")
+
+    def _save_tax(self):
+        is_pkp_val = "1" if self.tax_pkp_combo.currentIndex() == 1 else "0"
+        db.set_setting("tax_is_pkp", is_pkp_val)
+        db.set_setting("tax_npwp", self.tax_npwp_input.text().strip())
+        db.set_setting("tax_nama_pkp", self.tax_nama_pkp_input.text().strip())
+        db.set_setting("tax_default_ppn", str(self.tax_ppn_spin.value()))
+        db.set_setting("tax_default_pph", str(self.tax_pph_spin.value()))
+        db.set_setting("store_bank_name", self.bank_name_input.text().strip())
+        db.set_setting("store_bank_account", self.bank_acc_input.text().strip())
+        db.set_setting("store_bank_holder", self.bank_holder_input.text().strip())
+        QMessageBox.information(self, "Tersimpan", "Pengaturan pajak & rekening bank berhasil disimpan!")
 
     def _save_printer(self):
         db.set_setting("printer_type", self.printer_type_combo.currentText())

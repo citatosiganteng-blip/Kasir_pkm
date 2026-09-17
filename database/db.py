@@ -11,7 +11,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Generator
 
-from database.models import Base, User, Barang, Pengaturan, LoginAttempt
+from database.models import (
+    Base, User, Barang, Pengaturan, LoginAttempt,
+    Pelanggan, Supplier, Pembelian, PembelianDetail,
+    ReturPenjualan, ReturPenjualanDetail, ReturPembelian, ReturPembelianDetail
+)
 import config
 
 
@@ -53,7 +57,7 @@ class DatabaseManager:
             expire_on_commit=False,   # Objek tetap accessible setelah commit
         )
 
-        # Buat semua tabel
+        # Buat semua tabel (termasuk tabel baru: pelanggan, supplier, pembelian, pembelian_detail)
         Base.metadata.create_all(self._engine)
 
         # Jalankan migrasi kolom ringan untuk SQLite
@@ -77,8 +81,31 @@ class DatabaseManager:
                     ))
                     conn.commit()
 
+                # --- transaksi: migrasi kolom faktur, pelanggan, & pajak ---
+                res_trx = conn.execute(text("PRAGMA table_info(transaksi)"))
+                trx_cols = [row[1] for row in res_trx.fetchall()]
+
+                new_trx_cols = [
+                    ("pelanggan_id", "INTEGER"),
+                    ("nama_pelanggan", "VARCHAR(150)"),
+                    ("alamat_pelanggan", "TEXT"),
+                    ("telepon_pelanggan", "VARCHAR(50)"),
+                    ("npwp_pelanggan", "VARCHAR(50)"),
+                    ("status_bayar", "VARCHAR(20) DEFAULT 'lunas'"),
+                    ("jatuh_tempo", "DATETIME"),
+                    ("dpp", "FLOAT DEFAULT 0"),
+                    ("ppn_persen", "FLOAT DEFAULT 0"),
+                    ("ppn_nominal", "FLOAT DEFAULT 0"),
+                    ("pph_persen", "FLOAT DEFAULT 0"),
+                    ("pph_nominal", "FLOAT DEFAULT 0"),
+                    ("no_faktur_pajak", "VARCHAR(50)"),
+                ]
+                for col_name, col_type in new_trx_cols:
+                    if col_name not in trx_cols:
+                        conn.execute(text(f"ALTER TABLE transaksi ADD COLUMN {col_name} {col_type}"))
+                        conn.commit()
+
                 # --- login_attempts: buat tabel jika belum ada ---
-                # (create_all sudah menangani tabel baru, tapi ini sebagai fallback eksplisit)
                 conn.execute(text(
                     """
                     CREATE TABLE IF NOT EXISTS login_attempts (
@@ -176,6 +203,14 @@ class DatabaseManager:
                 "printer_port":  config.PRINTER_SERIAL_PORT,
                 "printer_width": str(config.PRINTER_PAPER_WIDTH),
                 "backup_enabled": "1",
+                "tax_is_pkp": "0",
+                "tax_npwp": "",
+                "tax_nama_pkp": "",
+                "tax_default_ppn": "11",
+                "tax_default_pph": "0",
+                "store_bank_name": "BCA",
+                "store_bank_account": "",
+                "store_bank_holder": "",
             }
             for kunci, nilai in settings.items():
                 existing = session.query(Pengaturan).filter_by(kunci=kunci).first()

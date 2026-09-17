@@ -71,7 +71,7 @@ def test_theme_toggle_and_persistence(qapp, monkeypatch):
     assert "Mode Gelap" in win.btn_theme_toggle.text()
 
     # Navigate through all pages to ensure no errors
-    for key in ["dashboard", "kasir", "barang", "riwayat", "pengeluaran", "laporan", "users", "settings"]:
+    for key in ["dashboard", "kasir", "barang", "pembelian", "riwayat", "pengeluaran", "laporan", "users", "settings"]:
         if key in win._pages:
             win._navigate(key)
             page = win._pages[key]
