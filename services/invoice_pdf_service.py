@@ -138,7 +138,7 @@ class InvoicePdfService:
         </head>
         <body>
             <!-- KOP TOKO & INFO FAKTUR -->
-            <table class="header-tbl" style="margin-bottom: 16px;">
+            <table class="header-tbl" width="100%" style="margin-bottom: 16px;">
                 <tr>
                     <td style="width: 58%;">
                         <div style="font-size: 20px; font-weight: 800; color: #0F172A;">{store['name']}</div>
@@ -157,7 +157,7 @@ class InvoicePdfService:
             <hr style="border: none; border-top: 2px solid #E2E8F0; margin-bottom: 14px;" />
 
             <!-- INFO PELANGGAN & DETAIL TRANSAKSI -->
-            <table style="margin-bottom: 14px;">
+            <table width="100%" style="margin-bottom: 14px;">
                 <tr>
                     <td style="width: 50%; vertical-align: top; background: #F8FAFC; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
                         <div style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase;">Kepada Yth:</div>
@@ -168,22 +168,22 @@ class InvoicePdfService:
                     </td>
                     <td style="width: 4%;"></td>
                     <td style="width: 46%; vertical-align: top; background: #F8FAFC; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
-                        <table style="width: 100%; font-size: 11px;">
+                        <table width="100%" cellpadding="1" cellspacing="0" style="font-size: 11px;">
                             <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Tanggal Faktur</td>
-                                <td style="text-align: right; font-weight: 600;">{tgl_trx}</td>
+                                <td width="42%" style="color: #64748B; padding: 2px 0;">Tanggal Faktur:</td>
+                                <td width="58%" align="right" style="font-weight: 600;">{tgl_trx}</td>
                             </tr>
                             <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Jatuh Tempo</td>
-                                <td style="text-align: right; font-weight: 600; color:#DC2626;">{jatuh_tempo_str}</td>
+                                <td style="color: #64748B; padding: 2px 0;">Jatuh Tempo:</td>
+                                <td align="right" style="font-weight: 600; color:#DC2626;">{jatuh_tempo_str}</td>
                             </tr>
                             <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Metode Bayar</td>
-                                <td style="text-align: right; font-weight: 600;">{transaksi.metode_bayar.upper()}</td>
+                                <td style="color: #64748B; padding: 2px 0;">Metode Bayar:</td>
+                                <td align="right" style="font-weight: 600;">{transaksi.metode_bayar.upper()}</td>
                             </tr>
                             <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Kasir / Sales</td>
-                                <td style="text-align: right; font-weight: 600;">{kasir_name}</td>
+                                <td style="color: #64748B; padding: 2px 0;">Kasir / Sales:</td>
+                                <td align="right" style="font-weight: 600;">{kasir_name}</td>
                             </tr>
                         </table>
                     </td>
@@ -193,7 +193,7 @@ class InvoicePdfService:
             {tax_info_box}
 
             <!-- TABEL DAFTAR BARANG -->
-            <table class="items-table">
+            <table class="items-table" width="100%">
                 <thead>
                     <tr>
                         <th style="width: 5%; text-align: center;">No</th>
@@ -211,7 +211,7 @@ class InvoicePdfService:
             </table>
 
             <!-- BAGIAN TERBILANG & RINGKASAN TOTAL -->
-            <table style="margin-top: 10px;">
+            <table width="100%" style="margin-top: 10px;">
                 <tr>
                     <td style="width: 55%; vertical-align: top;">
                         <div style="background: #F1F5F9; border-left: 4px solid #3B82F6; padding: 10px 14px; border-radius: 4px;">
@@ -264,7 +264,7 @@ class InvoicePdfService:
             </table>
 
             <!-- TANDA TANGAN -->
-            <table style="margin-top: 40px; text-align: center; font-size: 11px;">
+            <table width="100%" style="margin-top: 40px; text-align: center; font-size: 11px;">
                 <tr>
                     <td style="width: 35%;">
                         <div>Tanda Terima / Pembeli</div>
@@ -295,216 +295,354 @@ class InvoicePdfService:
 
     @classmethod
     def generate_purchase_order_html(cls, pembelian: Pembelian, store_info: dict = None) -> str:
-        """Render template HTML Faktur Pembelian / Purchase Order (PO A4)"""
+        """Render HTML Faktur Pembelian (PO A4) - layout A4 profesional & print-ready"""
         store = store_info or cls.get_store_info()
 
-        supplier_name = pembelian.supplier.nama if pembelian.supplier else "Supplier Umum"
-        supplier_kontak = pembelian.supplier.kontak if pembelian.supplier else "-"
-        supplier_phone = pembelian.supplier.telepon if pembelian.supplier else "-"
-        supplier_addr = pembelian.supplier.alamat if pembelian.supplier else "-"
-        supplier_npwp = pembelian.supplier.npwp if pembelian.supplier else "-"
+        supplier_name   = pembelian.supplier.nama    if pembelian.supplier else "Supplier Umum"
+        supplier_kontak = pembelian.supplier.kontak  if pembelian.supplier else "-"
+        supplier_phone  = pembelian.supplier.telepon if pembelian.supplier else "-"
+        supplier_addr   = pembelian.supplier.alamat  if pembelian.supplier else "-"
+        supplier_npwp   = pembelian.supplier.npwp    if pembelian.supplier else "-"
 
         tgl_po = format_datetime(pembelian.tanggal)
-        jatuh_tempo_str = format_tanggal(pembelian.jatuh_tempo) if pembelian.jatuh_tempo else "Tunai"
+        jatuh_tempo_str = format_tanggal(pembelian.jatuh_tempo) if pembelian.jatuh_tempo else "Tunai / Cash"
 
-        status_bayar_badge = (
-            '<span style="background:#10B981; color:#fff; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:11px;">LUNAS</span>'
-            if pembelian.status_bayar == "lunas"
-            else '<span style="background:#EF4444; color:#fff; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:11px;">TEMPO / HUTANG</span>'
-        )
+        is_lunas = pembelian.status_bayar == "lunas"
+        status_color = "#047857" if is_lunas else "#DC2626"
+        status_text  = "LUNAS" if is_lunas else "TEMPO / HUTANG"
+        status_badge = f'<span style="background-color: {status_color}; color: #ffffff; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 8.5pt;">{status_text}</span>'
 
         item_rows = []
         for i, item in enumerate(pembelian.detail, 1):
+            bg = 'background-color: #F8FAFC;' if i % 2 == 0 else 'background-color: #FFFFFF;'
             item_rows.append(f"""
-            <tr style="border-bottom: 1px solid #E2E8F0;">
-                <td style="padding: 8px; text-align: center; color:#64748B;">{i}</td>
-                <td style="padding: 8px; color:#1E293B; font-weight:600;">{item.nama_barang}</td>
-                <td style="padding: 8px; text-align: center; color:#475569;">{item.kode_barang or '-'}</td>
-                <td style="padding: 8px; text-align: center; color:#1E293B; font-weight:600;">{item.qty}</td>
-                <td style="padding: 8px; text-align: right; color:#475569;">{format_rupiah(item.harga_beli)}</td>
-                <td style="padding: 8px; text-align: right; color:#1E293B; font-weight:600;">{format_rupiah(item.subtotal)}</td>
+            <tr style="{bg}">
+                <td align="center" style="padding: 7px 5px; color: #64748B; font-size: 8.5pt; border-bottom: 1px solid #E2E8F0;">{i}</td>
+                <td style="padding: 7px 5px; color: #1E293B; font-weight: bold; font-size: 9pt; border-bottom: 1px solid #E2E8F0;">{item.nama_barang}</td>
+                <td align="center" style="padding: 7px 5px; color: #475569; font-size: 8.5pt; border-bottom: 1px solid #E2E8F0;">{item.kode_barang or "-"}</td>
+                <td align="center" style="padding: 7px 5px; font-weight: bold; font-size: 9pt; border-bottom: 1px solid #E2E8F0;">{item.qty}</td>
+                <td align="center" style="padding: 7px 5px; color: #64748B; font-size: 8.5pt; border-bottom: 1px solid #E2E8F0;">pcs</td>
+                <td align="right" style="padding: 7px 5px; color: #475569; font-size: 8.5pt; border-bottom: 1px solid #E2E8F0;">{format_rupiah(item.harga_beli)}</td>
+                <td align="right" style="padding: 7px 5px; font-weight: bold; color: #1E293B; font-size: 9pt; border-bottom: 1px solid #E2E8F0;">{format_rupiah(item.subtotal)}</td>
             </tr>
             """)
         items_html = "".join(item_rows)
 
-        user_name = pembelian.user.nama_lengkap or pembelian.user.username if pembelian.user else "Admin"
+        user_name = "Administrator"
+        if pembelian.user:
+            user_name = pembelian.user.nama_lengkap or pembelian.user.username or "Administrator"
+
         terbilang_str = terbilang(pembelian.total)
+        metode_str    = (getattr(pembelian, "metode_bayar", "transfer") or "transfer").upper()
+        catatan_str   = getattr(pembelian, "catatan", "") or ""
+        dpp_val       = pembelian.dpp or pembelian.subtotal or 0
+        ppn_nom       = pembelian.ppn_nominal or 0
+        ppn_pct       = pembelian.ppn_persen  or 0
+        pph_nom       = getattr(pembelian, "pph_nominal", 0) or 0
+        pph_pct       = getattr(pembelian, "pph_persen",  0) or 0
+        total_val     = pembelian.total or 0
 
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>Faktur Pembelian - {pembelian.no_po}</title>
-            <style>
-                body {{
-                    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                    color: #1E293B;
-                    margin: 0;
-                    padding: 20px;
-                    font-size: 12px;
-                    line-height: 1.4;
-                }}
-                table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                }}
-                .header-tbl td {{
-                    vertical-align: top;
-                }}
-                .inv-title {{
-                    font-size: 22px;
-                    font-weight: 800;
-                    color: #047857;
-                    letter-spacing: 0.5px;
-                }}
-                .items-table {{
-                    margin-top: 16px;
-                    margin-bottom: 16px;
-                    border: 1px solid #CBD5E1;
-                }}
-                .items-table th {{
-                    background-color: #047857;
-                    color: #FFFFFF;
-                    font-weight: 700;
-                    padding: 9px 8px;
-                    font-size: 11px;
-                    text-align: left;
-                }}
-                .summary-table td {{
-                    padding: 5px 8px;
-                }}
-            </style>
-        </head>
-        <body>
-            <!-- KOP TOKO & INFO PO -->
-            <table class="header-tbl" style="margin-bottom: 16px;">
+        ppn_row = f"""
+        <tr>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0; color: #64748B;">PPN Masukan ({ppn_pct:.0f}%):</td>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0;" align="right">{format_rupiah(ppn_nom)}</td>
+        </tr>
+        """ if ppn_nom > 0 else ""
+
+        pph_row = f"""
+        <tr>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0; color: #64748B;">PPh ({pph_pct:.1f}%):</td>
+            <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0; color: #DC2626;" align="right">-{format_rupiah(pph_nom)}</td>
+        </tr>
+        """ if pph_nom > 0 else ""
+
+        catatan_html = f"""
+        <div style="margin-top: 8px; padding: 6px 10px; background-color: #FFFBEB; border-left: 3px solid #F59E0B; border-radius: 4px; font-size: 8pt; color: #B45309;">
+            <b>Catatan PO:</b> {catatan_str}
+        </div>
+        """ if catatan_str else ""
+
+        bank_name = store.get("bank_name", "BCA")
+        bank_acc  = store.get("bank_account", "-")
+        bank_hold = store.get("bank_holder", "-")
+
+        npwp_str = f" | NPWP: {store['npwp']}" if (store['is_pkp'] or store.get('npwp') not in ('-', '')) else ""
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Faktur Pembelian - {pembelian.no_po}</title>
+<style>
+    body {{
+        font-family: Arial, sans-serif;
+        color: #1E293B;
+        font-size: 9.5pt;
+        margin: 0;
+        padding: 0;
+    }}
+    .header-tbl {{
+        width: 100%;
+        border-bottom: 2.5px solid #047857;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+    }}
+    .store-name {{
+        font-size: 15pt;
+        font-weight: bold;
+        color: #047857;
+    }}
+    .store-sub {{
+        font-size: 8.5pt;
+        color: #64748B;
+        line-height: 1.4;
+    }}
+    .doc-title {{
+        font-size: 17pt;
+        font-weight: bold;
+        color: #1E293B;
+        text-align: right;
+    }}
+    .doc-meta {{
+        font-size: 8.5pt;
+        color: #64748B;
+        text-align: right;
+        margin-top: 3px;
+        line-height: 1.5;
+    }}
+    .info-card {{
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 6px;
+        padding: 9px;
+        vertical-align: top;
+    }}
+    .info-title {{
+        font-size: 8.5pt;
+        font-weight: bold;
+        color: #047857;
+        text-transform: uppercase;
+        margin-bottom: 5px;
+        border-bottom: 1px solid #E2E8F0;
+        padding-bottom: 3px;
+    }}
+    .items-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        margin-bottom: 14px;
+    }}
+    .items-table th {{
+        background-color: #1E293B;
+        color: #FFFFFF;
+        font-size: 8.5pt;
+        font-weight: bold;
+        padding: 7px 5px;
+        text-align: left;
+    }}
+    .terbilang-box {{
+        background-color: #ECFDF5;
+        border-left: 3.5px solid #047857;
+        padding: 8px 10px;
+        border-radius: 4px;
+        font-size: 8.5pt;
+        color: #065F46;
+    }}
+    .bank-box {{
+        background-color: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 4px;
+        padding: 7px 9px;
+        font-size: 8pt;
+        color: #475569;
+        margin-top: 8px;
+    }}
+    .grand-total-row {{
+        background-color: #1E293B;
+        color: #4ADE80;
+        font-weight: bold;
+        font-size: 12.5pt;
+    }}
+    .sign-table {{
+        width: 100%;
+        margin-top: 25px;
+        text-align: center;
+    }}
+    .sign-role {{
+        font-size: 8.5pt;
+        color: #64748B;
+        font-weight: bold;
+    }}
+    .sign-line {{
+        margin-top: 50px;
+        border-top: 1px dotted #94A3B8;
+        display: inline-block;
+        min-width: 130px;
+        padding-top: 4px;
+        font-weight: bold;
+        font-size: 8.5pt;
+        color: #0F172A;
+    }}
+    .sign-sub {{
+        font-size: 7.5pt;
+        color: #94A3B8;
+        margin-top: 2px;
+    }}
+    .footer-tbl {{
+        width: 100%;
+        margin-top: 20px;
+        border-top: 1px solid #E2E8F0;
+        padding-top: 5px;
+        font-size: 7.5pt;
+        color: #94A3B8;
+    }}
+</style>
+</head>
+<body>
+
+<!-- KOP FAKTUR PEMBELIAN -->
+<table class="header-tbl" width="100%">
+    <tr>
+        <td width="55%" valign="top">
+            <div class="store-name">{store['name'].upper()}</div>
+            <div class="store-sub">{store['address']}<br>Telp: {store['phone']}{npwp_str}</div>
+        </td>
+        <td width="45%" align="right" valign="top">
+            <div class="doc-title">FAKTUR PEMBELIAN</div>
+            <div class="doc-meta">
+                <b>No PO:</b> {pembelian.no_po}<br>
+                <b>Ref Vendor:</b> {pembelian.no_faktur or "&mdash;"}<br>
+                <div style="margin-top: 4px;">Status: {status_badge}</div>
+            </div>
+        </td>
+    </tr>
+</table>
+
+<!-- INFO VENDOR & TRANSAKSI -->
+<table width="100%" cellspacing="8" cellpadding="0" style="margin-bottom: 10px;">
+    <tr>
+        <td class="info-card" width="50%">
+            <div class="info-title">Pemasok / Vendor</div>
+            <div style="font-size: 9.5pt; font-weight: bold; color: #0F172A;">{supplier_name}</div>
+            <div style="color: #64748B; font-size: 8pt; margin-top: 3px; line-height: 1.4;">
+                Kontak: {supplier_kontak} &bull; Telp: {supplier_phone}<br>
+                Alamat: {supplier_addr}<br>
+                NPWP: {supplier_npwp}
+            </div>
+        </td>
+        <td class="info-card" width="50%">
+            <div class="info-title">Informasi Pesanan</div>
+            <table width="100%" cellpadding="1" cellspacing="0" style="font-size: 8pt;">
                 <tr>
-                    <td style="width: 58%;">
-                        <div style="font-size: 20px; font-weight: 800; color: #0F172A;">{store['name']}</div>
-                        <div style="color: #475569; font-size: 12px; margin-top: 3px;">{store['address']}</div>
-                        <div style="color: #475569; font-size: 12px;">Telp: {store['phone']}</div>
-                    </td>
-                    <td style="width: 42%; text-align: right;">
-                        <div class="inv-title">FAKTUR PEMBELIAN / PO</div>
-                        <div style="font-size: 13px; font-weight: 700; color: #059669; margin-top: 4px;">No PO: #{pembelian.no_po}</div>
-                        <div style="font-size: 12px; color: #64748B;">No Faktur Vendor: <b>{pembelian.no_faktur}</b></div>
-                        <div style="margin-top: 4px;">Status: {status_bayar_badge}</div>
-                    </td>
+                    <td width="42%" style="color: #64748B;">Tanggal Masuk:</td>
+                    <td width="58%" align="right"><b>{tgl_po}</b></td>
+                </tr>
+                <tr>
+                    <td style="color: #64748B;">Jatuh Tempo:</td>
+                    <td align="right" style="color: {'#047857' if is_lunas else '#DC2626'}; font-weight: bold;">{jatuh_tempo_str}</td>
+                </tr>
+                <tr>
+                    <td style="color: #64748B;">Metode Bayar:</td>
+                    <td align="right"><b>{metode_str}</b></td>
+                </tr>
+                <tr>
+                    <td style="color: #64748B;">Dibuat Oleh:</td>
+                    <td align="right"><b>{user_name}</b></td>
                 </tr>
             </table>
+        </td>
+    </tr>
+</table>
 
-            <hr style="border: none; border-top: 2px solid #E2E8F0; margin-bottom: 14px;" />
+<!-- TABEL ITEM BARANG -->
+<table class="items-table" width="100%">
+    <thead>
+        <tr>
+            <th width="4%" style="text-align: center;">No</th>
+            <th width="38%">Nama Barang / Deskripsi</th>
+            <th width="15%" style="text-align: center;">Kode SKU</th>
+            <th width="8%" style="text-align: center;">Qty</th>
+            <th width="7%" style="text-align: center;">Satuan</th>
+            <th width="13%" style="text-align: right;">Harga Beli</th>
+            <th width="15%" style="text-align: right;">Total (IDR)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {items_html}
+    </tbody>
+</table>
 
-            <!-- INFO VENDOR & DETAIL PO -->
-            <table style="margin-bottom: 14px;">
+<!-- TOTAL & SUMMARY -->
+<table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+        <td width="55%" valign="top">
+            <div class="terbilang-box">
+                <b>Terbilang:</b><br>
+                <i style="font-weight: 600;">&#34;{terbilang_str}&#34;</i>
+            </div>
+            {catatan_html}
+            <div class="bank-box">
+                <b>💳 Rekening Pembayaran Vendor / Toko:</b><br>
+                Bank: <b>{bank_name}</b> &nbsp;|&nbsp; No. Rek: <b>{bank_acc}</b><br>
+                Atas Nama: <b>{bank_hold}</b>
+            </div>
+        </td>
+        <td width="5%"></td>
+        <td width="40%" valign="top">
+            <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 8.5pt; border: 1px solid #E2E8F0; border-collapse: collapse;">
                 <tr>
-                    <td style="width: 50%; vertical-align: top; background: #F8FAFC; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
-                        <div style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase;">Vendor / Supplier:</div>
-                        <div style="font-size: 14px; font-weight: 700; color: #0F172A; margin-top: 2px;">{supplier_name}</div>
-                        <div style="color: #475569; font-size: 11px; margin-top: 2px;">Kontak: {supplier_kontak} ({supplier_phone})</div>
-                        <div style="color: #475569; font-size: 11px;">Alamat: {supplier_addr}</div>
-                        <div style="color: #475569; font-size: 11px;">NPWP: {supplier_npwp}</div>
-                    </td>
-                    <td style="width: 4%;"></td>
-                    <td style="width: 46%; vertical-align: top; background: #F8FAFC; padding: 12px; border-radius: 8px; border: 1px solid #E2E8F0;">
-                        <table style="width: 100%; font-size: 11px;">
-                            <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Tanggal Masuk</td>
-                                <td style="text-align: right; font-weight: 600;">{tgl_po}</td>
-                            </tr>
-                            <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Jatuh Tempo</td>
-                                <td style="text-align: right; font-weight: 600; color:#DC2626;">{jatuh_tempo_str}</td>
-                            </tr>
-                            <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Metode Pembayaran</td>
-                                <td style="text-align: right; font-weight: 600;">{pembelian.metode_bayar.upper()}</td>
-                            </tr>
-                            <tr>
-                                <td style="color: #64748B; padding: 2px 0;">Dibuat Oleh</td>
-                                <td style="text-align: right; font-weight: 600;">{user_name}</td>
-                            </tr>
-                        </table>
-                    </td>
+                    <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0; color: #64748B;">DPP (Dasar Pengenaan Pajak):</td>
+                    <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0;" align="right"><b>{format_rupiah(dpp_val)}</b></td>
+                </tr>
+                {ppn_row}
+                {pph_row}
+                <tr>
+                    <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0; color: #64748B;">Biaya Pengiriman:</td>
+                    <td style="padding: 5px 8px; border-bottom: 1px solid #E2E8F0;" align="right">Rp 0</td>
+                </tr>
+                <tr class="grand-total-row">
+                    <td style="padding: 7px 8px; color: #FFFFFF;">GRAND TOTAL:</td>
+                    <td style="padding: 7px 8px; color: #4ADE80;" align="right">{format_rupiah(total_val)}</td>
                 </tr>
             </table>
+        </td>
+    </tr>
+</table>
 
-            <!-- TABEL BARANG MASUK -->
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th style="width: 5%; text-align: center;">No</th>
-                        <th style="width: 45%;">Nama Barang</th>
-                        <th style="width: 15%; text-align: center;">Kode</th>
-                        <th style="width: 10%; text-align: center;">Qty Masuk</th>
-                        <th style="width: 12%; text-align: right;">Harga Beli</th>
-                        <th style="width: 13%; text-align: right;">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {items_html}
-                </tbody>
-            </table>
+<!-- TANDA TANGAN -->
+<table class="sign-table" width="100%">
+    <tr>
+        <td width="33%" valign="top">
+            <div class="sign-role">Bagian Gudang / Penerima</div>
+            <div class="sign-line">( _____________________ )</div>
+            <div class="sign-sub">Staf Logistik / Gudang</div>
+        </td>
+        <td width="34%" valign="top">
+            <div class="sign-role">Kasir / Bagian Pembelian</div>
+            <div class="sign-line">( {user_name} )</div>
+            <div class="sign-sub">Kasir / Administrator</div>
+        </td>
+        <td width="33%" valign="top">
+            <div class="sign-role">Hormat Kami (Supplier)</div>
+            <div class="sign-line">( _____________________ )</div>
+            <div class="sign-sub">{supplier_name}</div>
+        </td>
+    </tr>
+</table>
 
-            <!-- RINGKASAN & PAJAK MASUKAN -->
-            <table style="margin-top: 10px;">
-                <tr>
-                    <td style="width: 55%; vertical-align: top;">
-                        <div style="background: #F1F5F9; border-left: 4px solid #10B981; padding: 10px 14px; border-radius: 4px;">
-                            <div style="font-size: 11px; font-weight: 700; color: #475569;">TERBILANG:</div>
-                            <div style="font-style: italic; font-weight: 600; color: #1E293B; margin-top: 2px; font-size: 12px;">"{terbilang_str}"</div>
-                        </div>
-                        {f'<div style="margin-top: 10px; font-size: 11px; color: #64748B;">Catatan: {pembelian.catatan}</div>' if pembelian.catatan else ''}
-                    </td>
-                    <td style="width: 5%;"></td>
-                    <td style="width: 40%; vertical-align: top;">
-                        <table class="summary-table" style="font-size: 12px; width: 100%;">
-                            <tr>
-                                <td style="color: #64748B;">DPP Pembelian:</td>
-                                <td style="text-align: right; font-weight: 600;">{format_rupiah(pembelian.dpp or pembelian.subtotal)}</td>
-                            </tr>
-                            {f'''<tr>
-                                <td style="color: #64748B;">PPN Masukan ({pembelian.ppn_persen:.0f}%):</td>
-                                <td style="text-align: right; font-weight: 600;">{format_rupiah(pembelian.ppn_nominal)}</td>
-                            </tr>''' if (pembelian.ppn_nominal or 0) > 0 else ''}
-                            {f'''<tr>
-                                <td style="color: #64748B;">PPh ({pembelian.pph_persen:.1f}%):</td>
-                                <td style="text-align: right; color:#DC2626;">-{format_rupiah(pembelian.pph_nominal)}</td>
-                            </tr>''' if (pembelian.pph_nominal or 0) > 0 else ''}
-                            <tr style="border-top: 2px solid #0F172A; background: #ECFDF5;">
-                                <td style="font-weight: 800; font-size: 14px; color: #065F46; padding: 8px;">TOTAL PEMBELIAN:</td>
-                                <td style="text-align: right; font-weight: 800; font-size: 15px; color: #047857; padding: 8px;">{format_rupiah(pembelian.total)}</td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
+<!-- FOOTER -->
+<table class="footer-tbl" width="100%">
+    <tr>
+        <td>Dicetak otomatis oleh {store['name']} POS Enterprise &bull; Dokumen Asli</td>
+        <td align="right">Hal. 1 dari 1</td>
+    </tr>
+</table>
 
-            <!-- TANDA TANGAN -->
-            <table style="margin-top: 40px; text-align: center; font-size: 11px;">
-                <tr>
-                    <td style="width: 35%;">
-                        <div>Pengirim / Supplier</div>
-                        <div style="height: 60px;"></div>
-                        <div style="font-weight: 700; border-top: 1px dotted #94A3B8; display: inline-block; padding-top: 4px; min-width: 140px;">
-                            ( {supplier_name} )
-                        </div>
-                    </td>
-                    <td style="width: 30%;"></td>
-                    <td style="width: 35%;">
-                        <div>Diterima Oleh (Gudang/Admin)</div>
-                        <div style="height: 60px;"></div>
-                        <div style="font-weight: 700; border-top: 1px dotted #94A3B8; display: inline-block; padding-top: 4px; min-width: 140px;">
-                            ( {user_name} )
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>
-        """
+</body>
+</html>
+"""
         return html
+
 
     @classmethod
     def generate_sales_return_html(cls, retur: ReturPenjualan, store_info: dict = None) -> str:
@@ -608,7 +746,7 @@ class InvoicePdfService:
         </head>
         <body>
             <!-- KOP DOKUMEN -->
-            <table class="header-tbl" style="border-bottom: 2px solid #DC2626; padding-bottom: 12px; margin-bottom: 16px;">
+            <table class="header-tbl" width="100%" style="border-bottom: 2px solid #DC2626; padding-bottom: 12px; margin-bottom: 16px;">
                 <tr>
                     <td style="width: 55%;">
                         <div class="store-title">{store['name']}</div>
@@ -627,7 +765,7 @@ class InvoicePdfService:
             </table>
 
             <!-- INFO PELANGGAN & TRANSAKSI ASAL -->
-            <table style="margin-bottom: 16px;">
+            <table width="100%" style="margin-bottom: 16px;">
                 <tr>
                     <td style="width: 50%; vertical-align: top; padding-right: 15px;">
                         <div style="font-weight: 700; font-size: 12px; color: #991B1B; border-bottom: 1px solid #FCA5A5; padding-bottom: 4px; margin-bottom: 6px;">
@@ -698,7 +836,7 @@ class InvoicePdfService:
             </table>
 
             <!-- TANDA TANGAN -->
-            <table style="margin-top: 40px; text-align: center; font-size: 11px;">
+            <table width="100%" style="margin-top: 40px; text-align: center; font-size: 11px;">
                 <tr>
                     <td style="width: 35%;">
                         <div>Konsumen / Pembeli</div>
@@ -724,11 +862,12 @@ class InvoicePdfService:
 
     @classmethod
     def save_html_to_pdf(cls, html_content: str, output_path: str | Path) -> bool:
-        """Konversi HTML menjadi file PDF A4 menggunakan PyQt5 QPrinter"""
+        """Konversi HTML menjadi file PDF A4 menggunakan PyQt5 QPrinter (skala 1:1 tajam & proporsional)"""
         try:
             from PyQt5.QtWidgets import QApplication
             from PyQt5.QtGui import QTextDocument
             from PyQt5.QtPrintSupport import QPrinter
+            from PyQt5.QtCore import QSizeF
 
             app = QApplication.instance()
             if app is None:
@@ -737,12 +876,15 @@ class InvoicePdfService:
             doc = QTextDocument()
             doc.setHtml(html_content)
 
-            printer = QPrinter(QPrinter.HighResolution)
+            printer = QPrinter(QPrinter.ScreenResolution)
             printer.setOutputFormat(QPrinter.PdfFormat)
             printer.setOutputFileName(str(output_path))
             printer.setPageSize(QPrinter.A4)
-            # Standar margin 15mm
+            # Standar margin cetak 12mm
             printer.setPageMargins(12, 12, 12, 12, QPrinter.Millimeter)
+
+            # Sesuaikan ukuran halaman QTextDocument ke printable area A4
+            doc.setPageSize(QSizeF(printer.pageRect().size()))
 
             doc.print_(printer)
             return True
