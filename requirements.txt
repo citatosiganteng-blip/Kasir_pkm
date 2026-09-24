@@ -1,0 +1,12 @@
+PyQt5==5.15.11
+SQLAlchemy==2.0.51
+bcrypt==5.0.0
+python-escpos>=3.0.0   # pin jika sudah install: ganti >= dengan ==
+openpyxl==3.1.5
+Pillow==12.2.0
+pyserial==3.5
+# API Cross-Platform (FastAPI)
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+PyJWT==2.14.0
+python-multipart==0.0.32

@@ -1,0 +1,110 @@
+# KasirKu - Sistem Kasir Native Python
+
+Aplikasi kasir (Point of Sale) native desktop untuk UMKM, dibangun dengan Python + PyQt5.
+
+## 🚀 Fitur Utama
+
+- ✅ **Login Multi-User** - Admin & Kasir dengan bcrypt password hashing
+- ✅ **Manajemen Barang** - CRUD produk dengan barcode, stok, kategori
+- ✅ **Transaksi POS** - Keranjang belanja, diskon, multiple metode bayar
+- ✅ **Cetak Struk** - ESC/POS thermal printer (58mm/80mm)
+- ✅ **Cash Drawer** - Auto-open via RJ11/USB
+- ✅ **Pengeluaran** - Catat biaya operasional
+- ✅ **Laporan** - Rekap harian, top produk, laba/rugi
+- ✅ **Backup Otomatis** - Database SQLite backup harian
+- ✅ **100% Offline** - Tidak butuh internet
+
+## 💻 Requirements
+
+- Python 3.10+
+- Windows 10/11 atau Linux
+
+## ⚙️ Instalasi
+
+```bash
+# Clone / download project
+cd kasir
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Jalankan aplikasi
+python main.py
+```
+
+## 🔑 Default Login
+
+| Username | Password | Role  |
+|----------|----------|-------|
+| admin    | admin123 | Admin |
+| kasir    | kasir123 | Kasir |
+
+> **⚠️ Segera ganti password default setelah pertama kali login!**
+
+## 🗂️ Struktur Project
+
+```
+kasir/
+├── main.py              # Entry point
+├── config.py            # Konfigurasi global
+├── requirements.txt
+├── database/
+│   ├── models.py        # SQLAlchemy ORM models
+│   └── db.py            # Database manager
+├── auth/
+│   └── auth_manager.py  # Authentication & session
+├── ui/
+│   ├── styles.py        # Dark theme stylesheet
+│   ├── login_window.py
+│   ├── main_window.py
+│   ├── dashboard.py
+│   ├── settings_page.py
+│   ├── barang/          # Manajemen produk
+│   ├── transaksi/       # POS & riwayat
+│   ├── pengeluaran/     # Biaya keluar
+│   ├── laporan/         # Laporan & analitik
+│   └── admin/           # User management
+├── services/
+│   ├── printer_service.py  # ESC/POS printer
+│   ├── drawer_service.py   # Cash drawer
+│   └── backup_service.py   # DB backup
+└── utils/
+    └── helpers.py       # Format currency, dates, dll
+```
+
+## 🖨️ Konfigurasi Printer
+
+Edit `config.py` atau gunakan menu **Pengaturan** di aplikasi:
+
+```python
+PRINTER_TYPE = "usb"     # usb / serial / network
+PRINTER_VENDOR_ID = None  # Vendor ID USB printer
+PRINTER_PRODUCT_ID = None # Product ID USB printer
+PRINTER_SERIAL_PORT = "COM1"  # Port serial (Windows)
+PRINTER_PAPER_WIDTH = 80  # 58 atau 80 mm
+```
+
+## 🔑 Keyboard Shortcuts
+
+| Shortcut | Fungsi          |
+|----------|-----------------|
+| F1       | Buka pembayaran |
+| F2       | Fokus pencarian |
+| Esc      | Hapus keranjang |
+
+## 📦 Packaging ke .exe (Windows)
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed --name=KasirKu main.py
+```
+
+## 🔧 Database
+
+- SQLite lokal di `kasirku.db`
+- Backup otomatis setiap 8 jam di folder `backup/`
+- Bisa restore dari menu Pengaturan > Backup
+
+---
+
+Dibuat untuk program PKM UMKM Indonesia 🇮🇩
