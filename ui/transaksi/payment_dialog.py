@@ -13,6 +13,7 @@ from PyQt5.QtGui import QDoubleValidator, QFont, QColor, QPixmap
 
 from database.db import db
 from utils.helpers import format_rupiah
+from ui.widgets import ThemedComboBox
 
 
 class PaymentDialog(QDialog):
@@ -32,6 +33,7 @@ class PaymentDialog(QDialog):
             }
         """)
         self._setup_ui()
+        self._apply_theme()
         self.bayar_input.setFocus()
         # Set default cash to exact amount
         self.bayar_input.setText(str(int(total)))
@@ -44,14 +46,16 @@ class PaymentDialog(QDialog):
 
         # Header
         header_lbl = QLabel("💳 Proses Pembayaran")
-        header_lbl.setStyleSheet("font-size: 18px; font-weight: 800; color: #1E293B;")
+        header_lbl.setObjectName("payment_title")
+        header_lbl.setStyleSheet("font-size: 18px; font-weight: 800; color: #112D4E;")
         layout.addWidget(header_lbl)
 
         # Total
         total_frame = QFrame()
+        total_frame.setObjectName("payment_total_frame")
         total_frame.setStyleSheet("""
             QFrame {
-                background: #EFF6FF;
+                background: #DBE2EF;
                 border: 1.5px solid #BFDBFE;
                 border-radius: 12px;
             }
@@ -60,11 +64,12 @@ class PaymentDialog(QDialog):
         total_layout.setContentsMargins(20, 14, 20, 14)
 
         total_title = QLabel("Total Pembayaran")
+        total_title.setObjectName("payment_total_title")
         total_title.setStyleSheet("color: #1E40AF; font-size: 12px; font-weight: 600; background: transparent;")
         total_layout.addWidget(total_title)
 
         self.total_lbl = QLabel(format_rupiah(self.total))
-        self.total_lbl.setStyleSheet("color: #1D4ED8; font-size: 28px; font-weight: 900; background: transparent;")
+        self.total_lbl.setStyleSheet("color: #2F5A8C; font-size: 28px; font-weight: 900; background: transparent;")
         total_layout.addWidget(self.total_lbl)
         layout.addWidget(total_frame)
 
@@ -73,24 +78,24 @@ class PaymentDialog(QDialog):
         metode_lbl.setStyleSheet("color: #64748B; font-size: 12px; font-weight: 600;")
         layout.addWidget(metode_lbl)
 
-        self.metode_combo = QComboBox()
+        self.metode_combo = ThemedComboBox()
         self.metode_combo.addItems(["Cash", "QRIS", "Transfer"])
         self.metode_combo.setFixedHeight(44)
         self.metode_combo.setStyleSheet("""
             QComboBox {
                 background: #FFFFFF;
-                border: 1.5px solid #E2E8F0;
+                border: 1.5px solid #E5E7EB;
                 border-radius: 10px;
                 padding: 0 14px;
-                color: #1E293B;
+                color: #112D4E;
                 font-size: 14px;
             }
-            QComboBox:focus { border-color: #2563EB; }
+            QComboBox:focus { border-color: #3F72AF; }
             QComboBox QAbstractItemView {
                 background: #FFFFFF;
-                border: 1px solid #E2E8F0;
-                selection-background-color: #EFF6FF;
-                selection-color: #2563EB;
+                border: 1px solid #E5E7EB;
+                selection-background-color: #DBE2EF;
+                selection-color: #3F72AF;
             }
         """)
         self.metode_combo.currentTextChanged.connect(self._on_metode_changed)
@@ -100,8 +105,8 @@ class PaymentDialog(QDialog):
         self.qris_frame = QFrame()
         self.qris_frame.setStyleSheet("""
             QFrame {
-                background: #F8FAFC;
-                border: 1.5px solid #2563EB;
+                background: #F9FAFB;
+                border: 1.5px solid #3F72AF;
                 border-radius: 12px;
             }
         """)
@@ -110,7 +115,8 @@ class PaymentDialog(QDialog):
         qris_layout.setAlignment(Qt.AlignCenter)
 
         qris_header = QLabel("📲 Scan QRIS Pembayaran")
-        qris_header.setStyleSheet("color: #2563EB; font-size: 13px; font-weight: 700; background: transparent;")
+        qris_header.setObjectName("qris_header")
+        qris_header.setStyleSheet("color: #3F72AF; font-size: 13px; font-weight: 700; background: transparent;")
         qris_header.setAlignment(Qt.AlignCenter)
         qris_layout.addWidget(qris_header)
 
@@ -140,14 +146,14 @@ class PaymentDialog(QDialog):
         self.bayar_input.setStyleSheet("""
             QLineEdit {
                 background: #FFFFFF;
-                border: 1.5px solid #E2E8F0;
+                border: 1.5px solid #E5E7EB;
                 border-radius: 10px;
                 padding: 0 14px;
-                color: #1E293B;
+                color: #112D4E;
                 font-size: 22px;
                 font-weight: 700;
             }
-            QLineEdit:focus { border-color: #2563EB; }
+            QLineEdit:focus { border-color: #3F72AF; }
         """)
         self.bayar_input.textChanged.connect(self._update_change)
         layout.addWidget(self.bayar_input)
@@ -162,14 +168,14 @@ class PaymentDialog(QDialog):
             btn.setFixedHeight(36)
             btn.setStyleSheet("""
                 QPushButton {
-                    background: #F1F5F9;
+                    background: #F9FAFB;
                     color: #475569;
-                    border: 1px solid #E2E8F0;
+                    border: 1px solid #E5E7EB;
                     border-radius: 8px;
                     font-size: 12px;
                     font-weight: 600;
                 }
-                QPushButton:hover { background: #EFF6FF; color: #2563EB; border-color: #BFDBFE; }
+                QPushButton:hover { background: #DBE2EF; color: #3F72AF; border-color: #BFDBFE; }
             """)
             btn.clicked.connect(lambda _, a=amt: self._add_amount(a))
             quick_layout.addWidget(btn)
@@ -188,6 +194,7 @@ class PaymentDialog(QDialog):
         change_layout.setContentsMargins(16, 12, 16, 12)
 
         change_title = QLabel("Kembalian:")
+        change_title.setObjectName("change_title")
         change_title.setStyleSheet("color: #065F46; font-size: 13px; font-weight: 600; background: transparent;")
         change_layout.addWidget(change_title)
         change_layout.addStretch()
@@ -202,17 +209,18 @@ class PaymentDialog(QDialog):
         # Buttons
         btn_row = QHBoxLayout()
         btn_cancel = QPushButton("Batal")
+        btn_cancel.setObjectName("payment_cancel")
         btn_cancel.setFixedHeight(48)
         btn_cancel.setStyleSheet("""
             QPushButton {
-                background: #F1F5F9;
+                background: #F9FAFB;
                 color: #64748B;
-                border: 1px solid #E2E8F0;
+                border: 1px solid #E5E7EB;
                 border-radius: 10px;
                 font-size: 14px;
                 font-weight: 600;
             }
-            QPushButton:hover { background: #E2E8F0; color: #1E293B; }
+            QPushButton:hover { background: #E5E7EB; color: #112D4E; }
         """)
         btn_cancel.clicked.connect(self.reject)
         btn_row.addWidget(btn_cancel)
@@ -221,16 +229,16 @@ class PaymentDialog(QDialog):
         self.btn_confirm.setFixedHeight(48)
         self.btn_confirm.setStyleSheet("""
             QPushButton {
-                background: #2563EB;
+                background: #3F72AF;
                 color: white;
                 border: none;
                 border-radius: 10px;
                 font-size: 15px;
                 font-weight: 700;
             }
-            QPushButton:hover { background: #1D4ED8; }
+            QPushButton:hover { background: #2F5A8C; }
             QPushButton:pressed { background: #1E40AF; }
-            QPushButton:disabled { background: #E2E8F0; color: #94A3B8; }
+            QPushButton:disabled { background: #E5E7EB; color: #94A3B8; }
         """)
         self.btn_confirm.clicked.connect(self._confirm)
         btn_row.addWidget(self.btn_confirm)
@@ -241,6 +249,55 @@ class PaymentDialog(QDialog):
         self.error_lbl.setAlignment(Qt.AlignCenter)
         self.error_lbl.hide()
         layout.addWidget(self.error_lbl)
+
+    def _apply_theme(self, theme=None):
+        """Apply the application theme to every payment-dialog component."""
+        theme = theme or db.get_setting("app_theme", "light")
+        is_dark = theme == "dark"
+
+        if is_dark:
+            self.setStyleSheet("QDialog { background: #0B2036; }")
+            self.findChild(QLabel, "payment_title").setStyleSheet("font-size: 18px; font-weight: 800; color: #F9FAFB;")
+            self.findChild(QFrame, "payment_total_frame").setStyleSheet("QFrame { background: #17324F; border: 1.5px solid #274568; border-radius: 12px; }")
+            self.findChild(QLabel, "payment_total_title").setStyleSheet("color: #93C5FD; font-size: 12px; font-weight: 600; background: transparent;")
+            self.total_lbl.setStyleSheet("color: #F9FAFB; font-size: 28px; font-weight: 900; background: transparent;")
+            self.metode_combo.setStyleSheet("""QComboBox { background: #112D4E; border: 1.5px solid #274568; border-radius: 10px; padding: 0 14px; color: #F9FAFB; font-size: 14px; } QComboBox:focus { border-color: #2572AF; } QComboBox QAbstractItemView { background: #112D4E; border: 1px solid #274568; selection-background-color: #2572AF; selection-color: #FFFFFF; color: #F9FAFB; }""")
+            self.qris_frame.setStyleSheet("QFrame { background: #112D4E; border: 1.5px solid #3F72AF; border-radius: 12px; }")
+            self.findChild(QLabel, "qris_header").setStyleSheet("color: #93C5FD; font-size: 13px; font-weight: 700; background: transparent;")
+            self.qris_img_lbl.setStyleSheet("background: #FFFFFF; border-radius: 8px; padding: 10px;")
+            self.qris_info_lbl.setStyleSheet("color: #94A3B8; font-size: 11px; background: transparent;")
+            self.bayar_lbl.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600;")
+            self.bayar_input.setStyleSheet("""QLineEdit { background: #112D4E; border: 1.5px solid #274568; border-radius: 10px; padding: 0 14px; color: #F9FAFB; font-size: 22px; font-weight: 700; } QLineEdit:focus { border-color: #2572AF; }""")
+            for btn in self.quick_widget.findChildren(QPushButton):
+                btn.setStyleSheet("QPushButton { background: #17324F; color: #B9C4D6; border: 1px solid #274568; border-radius: 8px; font-size: 12px; font-weight: 600; } QPushButton:hover { background: #274568; color: #F9FAFB; border-color: #3F72AF; }")
+            self.change_frame.setStyleSheet("QFrame { background: #14532D; border: 1px solid #166534; border-radius: 10px; }")
+            self.findChild(QLabel, "change_title").setStyleSheet("color: #86EFAC; font-size: 13px; font-weight: 600; background: transparent;")
+            self.change_lbl.setStyleSheet("color: #86EFAC; font-size: 18px; font-weight: 800; background: transparent;")
+            self.findChild(QPushButton, "payment_cancel").setStyleSheet("QPushButton { background: #17324F; color: #B9C4D6; border: 1px solid #274568; border-radius: 10px; font-size: 14px; font-weight: 600; } QPushButton:hover { background: #274568; color: #F9FAFB; }")
+            self.btn_confirm.setStyleSheet("QPushButton { background: #2572AF; color: #FFFFFF; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; } QPushButton:hover { background: #1D5F95; } QPushButton:pressed { background: #1E40AF; } QPushButton:disabled { background: #274568; color: #64748B; }")
+        else:
+            self.setStyleSheet("QDialog { background: #F9FAFB; }")
+            self.findChild(QLabel, "payment_title").setStyleSheet("font-size: 18px; font-weight: 800; color: #112D4E;")
+            self.findChild(QFrame, "payment_total_frame").setStyleSheet("QFrame { background: #DBE2EF; border: 1.5px solid #BFDBFE; border-radius: 12px; }")
+            self.findChild(QLabel, "payment_total_title").setStyleSheet("color: #1E40AF; font-size: 12px; font-weight: 600; background: transparent;")
+            self.total_lbl.setStyleSheet("color: #2F5A8C; font-size: 28px; font-weight: 900; background: transparent;")
+            self.metode_combo.setStyleSheet("""QComboBox { background: #FFFFFF; border: 1.5px solid #E5E7EB; border-radius: 10px; padding: 0 14px; color: #112D4E; font-size: 14px; } QComboBox:focus { border-color: #3F72AF; } QComboBox QAbstractItemView { background: #FFFFFF; border: 1px solid #E5E7EB; selection-background-color: #DBE2EF; selection-color: #3F72AF; color: #112D4E; }""")
+            self.qris_frame.setStyleSheet("QFrame { background: #F9FAFB; border: 1.5px solid #3F72AF; border-radius: 12px; }")
+            self.findChild(QLabel, "qris_header").setStyleSheet("color: #3F72AF; font-size: 13px; font-weight: 700; background: transparent;")
+            self.qris_img_lbl.setStyleSheet("background: #FFFFFF; border-radius: 8px; padding: 10px;")
+            self.qris_info_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
+            self.bayar_lbl.setStyleSheet("color: #64748B; font-size: 12px; font-weight: 600;")
+            self.bayar_input.setStyleSheet("""QLineEdit { background: #FFFFFF; border: 1.5px solid #E5E7EB; border-radius: 10px; padding: 0 14px; color: #112D4E; font-size: 22px; font-weight: 700; } QLineEdit:focus { border-color: #3F72AF; }""")
+            for btn in self.quick_widget.findChildren(QPushButton):
+                btn.setStyleSheet("QPushButton { background: #F9FAFB; color: #475569; border: 1px solid #E5E7EB; border-radius: 8px; font-size: 12px; font-weight: 600; } QPushButton:hover { background: #DBE2EF; color: #3F72AF; border-color: #BFDBFE; }")
+            self.change_frame.setStyleSheet("QFrame { background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; }")
+            self.findChild(QLabel, "change_title").setStyleSheet("color: #065F46; font-size: 13px; font-weight: 600; background: transparent;")
+            self.change_lbl.setStyleSheet("color: #059669; font-size: 18px; font-weight: 800; background: transparent;")
+            self.findChild(QPushButton, "payment_cancel").setStyleSheet("QPushButton { background: #F9FAFB; color: #64748B; border: 1px solid #E5E7EB; border-radius: 10px; font-size: 14px; font-weight: 600; } QPushButton:hover { background: #E5E7EB; color: #112D4E; }")
+            self.btn_confirm.setStyleSheet("QPushButton { background: #3F72AF; color: white; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; } QPushButton:hover { background: #2F5A8C; } QPushButton:pressed { background: #1E40AF; } QPushButton:disabled { background: #E5E7EB; color: #94A3B8; }")
+
+    def on_theme_changed(self, theme: str):
+        self._apply_theme(theme)
 
     def _add_amount(self, amount: float):
         """Tambah jumlah ke input bayar"""
@@ -290,14 +347,25 @@ class PaymentDialog(QDialog):
             "Silakan upload gambar QRIS toko Anda di:\n"
             "Pengaturan ⚙️ ➔ Info Toko ➔ Gambar QRIS Toko"
         )
-        self.qris_img_lbl.setStyleSheet("""
-            background: #2D3250;
-            color: #F59E0B;
-            border-radius: 8px;
-            padding: 16px;
-            font-weight: 600;
-            font-size: 12px;
-        """)
+        if db.get_setting("app_theme", "light") == "dark":
+            self.qris_img_lbl.setStyleSheet("""
+                background: #274568;
+                color: #FCD34D;
+                border-radius: 8px;
+                padding: 16px;
+                font-weight: 600;
+                font-size: 12px;
+            """)
+        else:
+            self.qris_img_lbl.setStyleSheet("""
+                background: #FFFFFF;
+                color: #B45309;
+                border: 1px solid #E5E7EB;
+                border-radius: 8px;
+                padding: 16px;
+                font-weight: 600;
+                font-size: 12px;
+            """)
 
     def _update_change(self):
         """Hitung dan tampilkan kembalian"""

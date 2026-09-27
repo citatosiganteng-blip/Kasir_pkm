@@ -15,6 +15,7 @@ from database.db import db
 from database.models import Barang
 from utils.helpers import generate_item_code
 import config
+from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
 KATEGORI_LIST = [
@@ -35,9 +36,187 @@ class BarangFormDialog(QDialog):
         self.setWindowTitle("Tambah Barang" if not barang else "Edit Barang")
         self.setFixedSize(520, 640)
         self.setModal(True)
+
+        # Dialog ini adalah top-level window. Untuk memastikan tampilannya
+        # selalu mengikuti mode aplikasi (terutama setelah user berpindah
+        # dari Dark -> Light), terapkan tema secara eksplisit ke dialog.
         self._setup_ui()
+        self._apply_theme()
+
         if barang:
             self._populate_fields()
+
+    def _apply_theme(self):
+        """Terapkan warna dialog sesuai tema aplikasi yang sedang aktif."""
+        theme = db.get_setting("app_theme", "light")
+
+        if theme == "dark":
+            self.setStyleSheet("""
+                QDialog {
+                    background-color: #0B2036;
+                    color: #F9FAFB;
+                }
+                QDialog QLabel {
+                    color: #F9FAFB;
+                }
+                QFrame#card {
+                    background-color: #112D4E;
+                    border: 1px solid #274568;
+                    border-radius: 12px;
+                }
+                QLineEdit {
+                    background-color: #112D4E;
+                    color: #F9FAFB;
+                    border: 1.5px solid #274568;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                }
+                QLineEdit:focus {
+                    background-color: #17324F;
+                    border-color: #2572AF;
+                }
+                QLineEdit::placeholder {
+                    color: #8CA0BC;
+                }
+                QComboBox {
+                    background-color: #112D4E;
+                    color: #F9FAFB;
+                    border: 1.5px solid #274568;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                }
+                QComboBox:focus {
+                    border-color: #2572AF;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: #112D4E;
+                    color: #F9FAFB;
+                    border: 1px solid #274568;
+                    selection-background-color: #2572AF;
+                    selection-color: #FFFFFF;
+                }
+                QComboBox QLineEdit {
+                    background: transparent;
+                    border: none;
+                    color: #F9FAFB;
+                    padding: 0;
+                }
+                QSpinBox, QDoubleSpinBox {
+                    background-color: #112D4E;
+                    color: #F9FAFB;
+                    border: 1.5px solid #274568;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                }
+                QSpinBox::up-button, QSpinBox::down-button,
+                QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                    background: #17324F;
+                    border: none;
+                    width: 20px;
+                }
+                QPushButton#btn_secondary {
+                    background-color: #112D4E;
+                    color: #F9FAFB;
+                    border: 1.5px solid #274568;
+                    border-radius: 8px;
+                }
+                QPushButton#btn_secondary:hover {
+                    background-color: #17324F;
+                }
+                QPushButton {
+                    background-color: #2572AF;
+                    color: #FFFFFF;
+                    border: none;
+                    border-radius: 8px;
+                }
+                QPushButton:hover {
+                    background-color: #1D5F95;
+                }
+            """)
+        else:
+            self.setStyleSheet("""
+                QDialog {
+                    background-color: #F9FAFB;
+                    color: #112D4E;
+                }
+                QDialog QLabel {
+                    color: #112D4E;
+                }
+                QFrame#card {
+                    background-color: #FFFFFF;
+                    border: 1px solid #E5E7EB;
+                    border-radius: 12px;
+                }
+                QLineEdit {
+                    background-color: #FFFFFF;
+                    color: #112D4E;
+                    border: 1.5px solid #E5E7EB;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                }
+                QLineEdit:focus {
+                    background-color: #FFFFFF;
+                    border-color: #3F72AF;
+                }
+                QLineEdit::placeholder {
+                    color: #7C8CA6;
+                }
+                QComboBox {
+                    background-color: #FFFFFF;
+                    color: #112D4E;
+                    border: 1.5px solid #E5E7EB;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                }
+                QComboBox:focus {
+                    border-color: #3F72AF;
+                }
+                QComboBox QAbstractItemView {
+                    background-color: #FFFFFF;
+                    color: #112D4E;
+                    border: 1px solid #E5E7EB;
+                    selection-background-color: #DBE2EF;
+                    selection-color: #3F72AF;
+                }
+                QComboBox QLineEdit {
+                    background: transparent;
+                    border: none;
+                    color: #112D4E;
+                    padding: 0;
+                }
+                QSpinBox, QDoubleSpinBox {
+                    background-color: #FFFFFF;
+                    color: #112D4E;
+                    border: 1.5px solid #E5E7EB;
+                    border-radius: 8px;
+                    padding: 8px 12px;
+                }
+                QSpinBox::up-button, QSpinBox::down-button,
+                QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                    background: #F9FAFB;
+                    border: none;
+                    width: 20px;
+                }
+                QPushButton#btn_secondary {
+                    background-color: #FFFFFF;
+                    color: #3E4C63;
+                    border: 1.5px solid #E5E7EB;
+                    border-radius: 8px;
+                }
+                QPushButton#btn_secondary:hover {
+                    background-color: #F9FAFB;
+                    color: #112D4E;
+                }
+                QPushButton {
+                    background-color: #3F72AF;
+                    color: #FFFFFF;
+                    border: none;
+                    border-radius: 8px;
+                }
+                QPushButton:hover {
+                    background-color: #2F5A8C;
+                }
+            """)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -57,6 +236,7 @@ class BarangFormDialog(QDialog):
         # Form
         form_frame = QFrame()
         form_frame.setObjectName("card")
+        form_frame.setProperty("theme_form", True)
         form_layout = QFormLayout(form_frame)
         form_layout.setContentsMargins(20, 20, 20, 20)
         form_layout.setSpacing(14)
@@ -86,14 +266,14 @@ class BarangFormDialog(QDialog):
         form_layout.addRow(make_label("Nama Barang *"), self.nama_input)
 
         # Kategori
-        self.kategori_combo = QComboBox()
+        self.kategori_combo = ThemedComboBox()
         self.kategori_combo.addItems(KATEGORI_LIST)
         self.kategori_combo.setEditable(True)
         self.kategori_combo.setFixedHeight(38)
         form_layout.addRow(make_label("Kategori"), self.kategori_combo)
 
         # Satuan
-        self.satuan_combo = QComboBox()
+        self.satuan_combo = ThemedComboBox()
         self.satuan_combo.addItems(SATUAN_LIST)
         self.satuan_combo.setEditable(True)
         self.satuan_combo.setFixedHeight(38)

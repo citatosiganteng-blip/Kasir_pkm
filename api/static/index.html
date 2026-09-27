@@ -2,8 +2,14 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // Set atribut tema SEDINI mungkin (sebelum CSS dirender) supaya tidak
+    // ada kedipan tema gelap sesaat sebelum berpindah ke terang, atau
+    // sebaliknya.
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('kk_theme') || 'light');
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0F1117" />
+  <meta name="theme-color" content="#F9FAFB" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="KasirKu — Aplikasi kasir mobile untuk UMKM" />
@@ -16,12 +22,20 @@
     /* ─── Reset & Variables ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0F1117; --bg2: #1A1D27; --card: #21263A; --hover: #2A2F45;
-      --accent: #6C63FF; --accent-light: #8B84FF; --accent-dark: #4A44CC;
+      /* Mode Gelap (default) — palet navy biru KasirKu */
+      --bg: #0B2036; --bg2: #112D4E; --card: #17324F; --hover: #1D3B5C;
+      --accent: #3F72AF; --accent-light: #6B93C2; --accent-dark: #2F5A8C;
       --success: #10B981; --warning: #F59E0B; --danger: #EF4444;
-      --text: #F1F5F9; --text2: #94A3B8; --text3: #64748B;
-      --border: #2D3250; --radius: 14px; --radius-sm: 8px;
+      --text: #F9FAFB; --text2: #94A3B8; --text3: #64748B;
+      --border: #274568; --radius: 14px; --radius-sm: 8px;
       --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    :root[data-theme="light"] {
+      --bg: #F9FAFB; --bg2: #FFFFFF; --card: #FFFFFF; --hover: #F0F3F7;
+      --accent: #3F72AF; --accent-light: #DBE2EF; --accent-dark: #2F5A8C;
+      --success: #10B981; --warning: #F59E0B; --danger: #EF4444;
+      --text: #112D4E; --text2: #5B6B84; --text3: #7C8CA6;
+      --border: #E5E7EB;
     }
     html { height: 100%; }
     body {
@@ -38,10 +52,26 @@
     /* ─── LOGIN ─── */
     #screen-login {
       justify-content: center; align-items: center;
-      background: radial-gradient(ellipse at 60% 20%, rgba(108,99,255,.25) 0%, transparent 55%), var(--bg);
-      padding: 24px; overflow-y: auto;
+      background: radial-gradient(ellipse at 60% 20%, rgba(63,114,175,.25) 0%, transparent 55%), var(--bg);
+      padding: 24px; overflow-y: auto; position: relative;
     }
-    .login-logo { font-size: 48px; margin-bottom: 8px; filter: drop-shadow(0 0 20px rgba(108,99,255,.5)); text-align:center; }
+    .theme-toggle-btn {
+      position: absolute; top: 16px; right: 16px;
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg2); border: 1.5px solid var(--border);
+      color: var(--text2); font-size: 12px; font-weight: 600;
+      padding: 7px 14px; border-radius: 20px; cursor: pointer;
+      z-index: 5;
+    }
+    .theme-toggle-btn:active { background: var(--hover); }
+    .header-theme-toggle {
+      background: var(--bg); border: 1.5px solid var(--border);
+      color: var(--text2); font-size: 15px;
+      width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .login-logo { font-size: 48px; margin-bottom: 8px; filter: drop-shadow(0 0 20px rgba(63,114,175,.5)); text-align:center; }
     .login-title { font-size: 32px; font-weight: 800; background: linear-gradient(135deg, var(--accent-light), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px; text-align:center; }
     .login-sub { color: var(--text2); font-size: 14px; margin-bottom: 36px; text-align:center; }
     .login-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px; width: 100%; max-width: 380px; }
@@ -374,6 +404,7 @@
 
 <!-- ═══════════════════ LOGIN ═══════════════════ -->
 <div id="screen-login" class="screen active">
+  <button class="theme-toggle-btn" id="login-theme-btn" onclick="toggleTheme()">☀️ <span id="login-theme-label">Terang</span></button>
   <div class="login-logo">🏪</div>
   <div class="login-title">KasirKu</div>
   <div class="login-sub">Sistem kasir mobile untuk toko Anda</div>
@@ -400,9 +431,12 @@
       <span class="header-logo">🏪</span>
       <span class="header-title">KasirKu</span>
     </div>
-    <div class="header-user" onclick="confirmLogout()">
-      <div class="header-avatar" id="avatar">K</div>
-      <div class="header-username" id="uname">Kasir</div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="header-theme-toggle" id="main-theme-btn" onclick="toggleTheme()" title="Ganti mode terang/gelap">☀️</button>
+      <div class="header-user" onclick="confirmLogout()">
+        <div class="header-avatar" id="avatar">K</div>
+        <div class="header-username" id="uname">Kasir</div>
+      </div>
     </div>
   </div>
 
@@ -684,6 +718,34 @@
 <script>
 /* ══════════ CONFIG ══════════ */
 const API = window.location.origin;
+
+/* ══════════ THEME (terang/gelap) ══════════ */
+function getTheme() {
+  return localStorage.getItem('kk_theme') || 'light';
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const isLight = theme === 'light';
+  const label = isLight ? 'Terang' : 'Gelap';
+  const icon = isLight ? '☀️' : '🌙';
+
+  const loginLabel = document.getElementById('login-theme-label');
+  if (loginLabel) loginLabel.textContent = label;
+  const loginBtn = document.getElementById('login-theme-btn');
+  if (loginBtn) loginBtn.firstChild.textContent = icon + ' ';
+
+  const mainBtn = document.getElementById('main-theme-btn');
+  if (mainBtn) mainBtn.textContent = isLight ? '🌙' : '☀️';
+
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', isLight ? '#F9FAFB' : '#0B2036');
+}
+function toggleTheme() {
+  const next = getTheme() === 'light' ? 'dark' : 'light';
+  localStorage.setItem('kk_theme', next);
+  applyTheme(next);
+}
+applyTheme(getTheme());
 
 /* ══════════ STATE ══════════ */
 let token = localStorage.getItem('kk_token') || '';

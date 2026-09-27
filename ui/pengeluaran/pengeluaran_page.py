@@ -17,6 +17,7 @@ from database.models import Pengeluaran
 from auth.auth_manager import auth
 from utils.helpers import format_rupiah, format_datetime
 from datetime import datetime, date
+from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
 KATEGORI_PENGELUARAN = [
@@ -35,6 +36,7 @@ class PengeluaranFormDialog(QDialog):
         self.setFixedSize(460, 420)
         self.setModal(True)
         self._setup_ui()
+        apply_dialog_theme(self)
         if pengeluaran:
             self._populate()
 
@@ -69,7 +71,7 @@ class PengeluaranFormDialog(QDialog):
         form.addRow(lbl("Tanggal:"), self.tanggal_input)
 
         # Kategori
-        self.kategori_combo = QComboBox()
+        self.kategori_combo = ThemedComboBox()
         self.kategori_combo.addItems(KATEGORI_PENGELUARAN)
         self.kategori_combo.setEditable(True)
         self.kategori_combo.setFixedHeight(38)
@@ -211,7 +213,7 @@ class PengeluaranPage(QWidget):
         self.date_to.setFixedHeight(38)
         fl.addWidget(self.date_to)
 
-        self.kat_filter = QComboBox()
+        self.kat_filter = ThemedComboBox()
         self.kat_filter.addItem("Semua Kategori")
         self.kat_filter.addItems(KATEGORI_PENGELUARAN)
         self.kat_filter.setFixedHeight(38)
@@ -288,14 +290,14 @@ class PengeluaranPage(QWidget):
     def _render_table(self):
         self.table.setRowCount(len(self._data))
         is_dark = (db.get_setting("app_theme", "light") == "dark")
-        text_primary = "#F1F5F9" if is_dark else "#1E293B"
+        text_primary = "#F9FAFB" if is_dark else "#112D4E"
         text_muted = "#94A3B8" if is_dark else "#64748B"
 
         for row, p in enumerate(self._data):
             self.table.setRowHeight(row, 44)
             items = [
                 (format_datetime(p["tanggal"]), text_muted),
-                (p["kategori"], "#2563EB" if not is_dark else "#60A5FA"),
+                (p["kategori"], "#3F72AF" if not is_dark else "#6B93C2"),
                 (p["deskripsi"], text_primary),
                 (format_rupiah(p["nominal"]), "#EF4444"),
                 (p["user"], text_muted),

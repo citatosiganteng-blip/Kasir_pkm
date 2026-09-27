@@ -11,12 +11,18 @@ from PyQt5.QtCore import Qt, QRectF, QPointF
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPen, QColor
 
 
-def eye_icon(visible: bool, color: str = "#64748B", size: int = 22) -> QIcon:
+def eye_icon(visible: bool, color: str = None, size: int = 22) -> QIcon:
     """Ikon mata untuk tombol lihat/sembunyikan password.
 
     visible=True  -> mata terbuka (password sedang terlihat)
     visible=False -> mata terbuka + coretan diagonal (password disembunyikan)
     """
+    # Jangan mengunci warna ikon ke warna mode terang. Sebelumnya ikon mata
+    # selalu #64748B sehingga pada kontrol gelap kontrasnya buruk/terlihat
+    # seperti ikon hilang. Biarkan palette tombol menentukan warna default.
+    if not color:
+        color = "#B9C4D6"
+
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.transparent)
 

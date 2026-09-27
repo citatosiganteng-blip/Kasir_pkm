@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         # Divider
         div = QFrame()
         div.setFixedHeight(1)
-        div.setStyleSheet("background: rgba(255,255,255,0.1); margin: 8px 0px;")
+        div.setObjectName("sidebar_divider")
         sidebar_layout.addWidget(div)
         sidebar_layout.addSpacing(4)
 
@@ -122,6 +122,7 @@ class MainWindow(QMainWindow):
         ]
 
         if auth.is_admin:
+            nav_items.append(("👥", "Manajemen User", "users"))
             nav_items.append(("⚙️", "Pengaturan", "settings"))
 
         for icon, text, key in nav_items:
@@ -135,7 +136,7 @@ class MainWindow(QMainWindow):
         # Divider
         div2 = QFrame()
         div2.setFixedHeight(1)
-        div2.setStyleSheet("background: rgba(255,255,255,0.1); margin: 4px 0px;")
+        div2.setObjectName("sidebar_divider")
         sidebar_layout.addWidget(div2)
 
         # Logout button
@@ -316,6 +317,16 @@ class MainWindow(QMainWindow):
             btn.style().polish(btn)
 
         # Beritahu semua halaman yang memiliki hook on_theme_changed
+        # dan semua dialog yang sedang terbuka agar tidak ada modal yang
+        # tertinggal memakai tema lama.
+        from PyQt5.QtWidgets import QDialog
+        for widget in QApplication.topLevelWidgets():
+            if isinstance(widget, QDialog) and hasattr(widget, "on_theme_changed"):
+                try:
+                    widget.on_theme_changed(self._current_theme)
+                except Exception as e:
+                    print(f"[MainWindow] Error updating dialog theme: {e}")
+
         for page in self._pages.values():
             if hasattr(page, "on_theme_changed"):
                 try:

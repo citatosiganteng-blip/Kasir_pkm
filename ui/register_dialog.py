@@ -17,17 +17,18 @@ import config
 from database.db import db
 from database.models import User
 from utils.icons import eye_icon
+from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
 EYE_BTN_STYLE = """
     QPushButton {
-        background-color: #1A1D27;
-        border: 1.5px solid #2D3250;
+        background-color: #112D4E;
+        border: 1.5px solid #274568;
         border-left: none;
         border-radius: 0 8px 8px 0;
     }
     QPushButton:hover {
-        background-color: #21263A;
+        background-color: #17324F;
     }
 """
 
@@ -41,11 +42,28 @@ class RegisterDialog(QDialog):
         self.setWindowTitle(f"Daftar Akun - {config.APP_NAME}")
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self._setup_ui()
+        apply_dialog_theme(self)
+        self._apply_theme()
         # Ukuran dihitung dari kebutuhan konten sesungguhnya (bukan angka
         # tebakan) supaya tidak ada teks yang terpotong/klip di layar manapun.
         self.setFixedWidth(440)
         self.adjustSize()
         self.setFixedHeight(self.sizeHint().height())
+
+    def _apply_theme(self, theme=None):
+        theme = theme or db.get_setting("app_theme", "light")
+        is_dark = theme == "dark"
+        for btn in self.findChildren(QPushButton, "password_toggle"):
+            if is_dark:
+                btn.setStyleSheet("QPushButton { background-color: #112D4E; border: 1.5px solid #274568; border-left: none; border-radius: 0 8px 8px 0; } QPushButton:hover { background-color: #17324F; }")
+            else:
+                btn.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1.5px solid #E5E7EB; border-left: none; border-radius: 0 8px 8px 0; } QPushButton:hover { background-color: #F9FAFB; }")
+        self.findChild(QLabel, "register_desc").setStyleSheet(f"font-size: 12px; color: {'#94A3B8' if is_dark else '#5B6B84'};")
+        self.admin_code_label.setStyleSheet(f"font-size: 11px; font-weight: 600; color: {'#94A3B8' if is_dark else '#64748B'};")
+
+    def on_theme_changed(self, theme: str):
+        apply_dialog_theme(self)
+        self._apply_theme(theme)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -58,6 +76,7 @@ class RegisterDialog(QDialog):
         layout.addWidget(title)
 
         desc = QLabel("Isi data di bawah ini untuk membuat akun login baru.")
+        desc.setObjectName("register_desc")
         desc.setStyleSheet("font-size: 12px; color: #94A3B8;")
         desc.setAlignment(Qt.AlignCenter)
         desc.setWordWrap(True)
@@ -95,7 +114,7 @@ class RegisterDialog(QDialog):
             btn.setFixedSize(42, 42)
             btn.setCheckable(True)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(EYE_BTN_STYLE)
+            btn.setObjectName("password_toggle")
             btn.toggled.connect(lambda checked, e=edit, b=btn: (
                 e.setEchoMode(QLineEdit.Normal if checked else QLineEdit.Password),
                 b.setIcon(eye_icon(checked)),
@@ -121,7 +140,7 @@ class RegisterDialog(QDialog):
         role_kasir_label = config.get_role_label("kasir")
 
         lbl("Daftar sebagai:")
-        self.role_combo = QComboBox()
+        self.role_combo = ThemedComboBox()
         self.role_combo.setFixedHeight(42)
         # data disimpan tetap "kasir"/"admin", hanya label tampilan yang custom
         self.role_combo.addItem(role_kasir_label, "kasir")

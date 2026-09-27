@@ -24,6 +24,7 @@ from utils.helpers import (
 from services.invoice_pdf_service import InvoicePdfService
 from ui.pembelian.retur_pembelian_dialog import ReturPembelianDialog
 from datetime import datetime, date
+from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
 class SupplierDialog(QDialog):
@@ -37,6 +38,7 @@ class SupplierDialog(QDialog):
         self.setFixedSize(480, 500)
         self.setModal(True)
         self._setup_ui()
+        apply_dialog_theme(self)
         if supplier:
             self._load_data()
 
@@ -180,7 +182,7 @@ class PembelianPage(QWidget):
         self.search_po_input.textChanged.connect(self._filter_pembelian_table)
         filter_row.addWidget(self.search_po_input, 2)
 
-        self.filter_status_combo = QComboBox()
+        self.filter_status_combo = ThemedComboBox()
         self.filter_status_combo.addItems(["Semua Status", "Lunas", "Tempo"])
         self.filter_status_combo.setFixedHeight(36)
         self.filter_status_combo.currentIndexChanged.connect(self._filter_pembelian_table)
@@ -248,7 +250,7 @@ class PembelianPage(QWidget):
         h_layout.setContentsMargins(14, 12, 14, 12)
 
         row1 = QHBoxLayout()
-        self.in_supplier_combo = QComboBox()
+        self.in_supplier_combo = ThemedComboBox()
         self.in_supplier_combo.setFixedHeight(36)
 
         btn_tambah_sup = QPushButton("+ Supplier")
@@ -284,11 +286,11 @@ class PembelianPage(QWidget):
         self.in_jatuh_tempo.setDate(QDate.currentDate().addDays(14))
         self.in_jatuh_tempo.setFixedHeight(36)
 
-        self.in_status_bayar = QComboBox()
+        self.in_status_bayar = ThemedComboBox()
         self.in_status_bayar.addItems(["Lunas", "Tempo"])
         self.in_status_bayar.setFixedHeight(36)
 
-        self.in_metode_bayar = QComboBox()
+        self.in_metode_bayar = ThemedComboBox()
         self.in_metode_bayar.addItems(["Transfer Bank", "Tunai / Cash"])
         self.in_metode_bayar.setFixedHeight(36)
 
@@ -309,7 +311,7 @@ class PembelianPage(QWidget):
         add_layout = QHBoxLayout(add_item_card)
         add_layout.setContentsMargins(14, 10, 14, 10)
 
-        self.in_barang_combo = QComboBox()
+        self.in_barang_combo = ThemedComboBox()
         self.in_barang_combo.setFixedHeight(36)
         self.in_barang_combo.currentIndexChanged.connect(self._on_barang_selected)
 
@@ -357,7 +359,7 @@ class PembelianPage(QWidget):
 
         tax_box = QHBoxLayout()
         tax_box.setSpacing(10)
-        self.in_ppn_check = QComboBox()
+        self.in_ppn_check = ThemedComboBox()
         self.in_ppn_check.addItems(["Non-PPN (0%)", "PPN 11%", "PPN 12%"])
         self.in_ppn_check.setFixedHeight(36)
         self.in_ppn_check.currentIndexChanged.connect(self._hitung_kalkulasi_total)

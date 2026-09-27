@@ -18,6 +18,7 @@ from database.db import db
 from database.models import User
 from auth.auth_manager import auth
 from utils.icons import eye_icon
+from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
 class UserFormDialog(QDialog):
@@ -29,6 +30,7 @@ class UserFormDialog(QDialog):
         self.setWindowTitle("Tambah User" if not user else "Edit User")
         self.setModal(True)
         self._setup_ui()
+        apply_dialog_theme(self)
         if user:
             self._populate()
         # Tinggi mengikuti kebutuhan konten sesungguhnya, bukan angka
@@ -93,7 +95,7 @@ class UserFormDialog(QDialog):
         pass_row.addWidget(btn_toggle_pw)
         form.addRow(lbl("Password *:"), pass_row)
 
-        self.role_combo = QComboBox()
+        self.role_combo = ThemedComboBox()
         self.role_combo.addItem(config.get_role_label("kasir"), "kasir")
         self.role_combo.addItem(config.get_role_label("admin"), "admin")
         self.role_combo.setFixedHeight(40)
@@ -233,7 +235,7 @@ class UserManagementPage(QWidget):
         info_l = QHBoxLayout(info_frame)
         info_l.setContentsMargins(12, 8, 12, 8)
         info_lbl = QLabel("ℹ️ Perubahan password akan berlaku saat user login berikutnya")
-        info_lbl.setStyleSheet("color: #6C63FF; font-size: 12px; font-weight: 500; background: transparent;")
+        info_lbl.setStyleSheet("color: #3F72AF; font-size: 12px; font-weight: 500; background: transparent;")
         info_l.addWidget(info_lbl)
         layout.addWidget(info_frame)
 
@@ -274,7 +276,7 @@ class UserManagementPage(QWidget):
             ]
 
         is_dark = db.get_setting("app_theme", "light") == "dark"
-        user_color = "#F1F5F9" if is_dark else "#0F172A"
+        user_color = "#F9FAFB" if is_dark else "#112D4E"
         muted_color = "#94A3B8" if is_dark else "#64748B"
 
         self.table.setRowCount(len(self._users))
@@ -285,7 +287,7 @@ class UserManagementPage(QWidget):
                 (str(u["id"]), muted_color),
                 (u["username"], user_color),
                 (u["nama"], muted_color),
-                (config.get_role_label(u["role"]).upper(), "#6C63FF" if (u["role"] or "").strip().lower() == "admin" else muted_color),
+                (config.get_role_label(u["role"]).upper(), "#3F72AF" if (u["role"] or "").strip().lower() == "admin" else muted_color),
             ]
             for col, (val, color) in enumerate(items):
                 item = QTableWidgetItem(val)

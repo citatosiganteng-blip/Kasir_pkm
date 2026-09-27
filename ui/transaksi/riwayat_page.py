@@ -22,10 +22,11 @@ from services.printer_service import PrinterService
 from services.invoice_pdf_service import InvoicePdfService
 from ui.transaksi.retur_penjualan_dialog import ReturPenjualanDialog
 from datetime import datetime, date, timedelta
+from ui.widgets import ThemedComboBox
 
 
 AVATAR_COLORS = [
-    "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B",
+    "#3F72AF", "#8B5CF6", "#EC4899", "#F59E0B",
     "#10B981", "#EF4444", "#14B8A6", "#F97316",
 ]
 
@@ -142,7 +143,7 @@ class RiwayatTransaksiPage(QWidget):
         self.search_input.textChanged.connect(self._filter_data)
         search_row.addWidget(self.search_input)
 
-        self.status_filter = QComboBox()
+        self.status_filter = ThemedComboBox()
         self.status_filter.addItems(["Semua Status", "Selesai", "Void"])
         self.status_filter.setFixedHeight(38)
         self.status_filter.setFixedWidth(140)
@@ -270,7 +271,7 @@ class RiwayatTransaksiPage(QWidget):
 
         val_lbl = QLabel(value)
         val_lbl.setObjectName(f"sc_val_{title}")
-        val_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent; color: #F1F5F9;")
+        val_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent; color: #F9FAFB;")
         row.addWidget(val_lbl)
 
         sub_lbl = QLabel(subtitle)
@@ -305,29 +306,29 @@ class RiwayatTransaksiPage(QWidget):
         if is_dark:
             frame.setStyleSheet("""
                 QFrame#stat_card_tx {
-                    background-color: #1A1D27;
-                    border: 1px solid #2D3250;
+                    background-color: #112D4E;
+                    border: 1px solid #274568;
                     border-radius: 12px;
                 }
             """)
             if hasattr(frame, "_title_lbl"):
                 frame._title_lbl.setStyleSheet("font-size: 10px; font-weight: 600; letter-spacing: 0.5px; background: transparent; color: #94A3B8;")
             if hasattr(frame, "_val_lbl"):
-                frame._val_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent; color: #F1F5F9;")
+                frame._val_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent; color: #F9FAFB;")
             if hasattr(frame, "_sub_lbl"):
                 frame._sub_lbl.setStyleSheet("font-size: 11px; background: transparent; color: #22C55E;")
         else:
             frame.setStyleSheet("""
                 QFrame#stat_card_tx {
                     background-color: #FFFFFF;
-                    border: 1px solid #E2E8F0;
+                    border: 1px solid #E5E7EB;
                     border-radius: 12px;
                 }
             """)
             if hasattr(frame, "_title_lbl"):
                 frame._title_lbl.setStyleSheet("font-size: 10px; font-weight: 600; letter-spacing: 0.5px; background: transparent; color: #64748B;")
             if hasattr(frame, "_val_lbl"):
-                frame._val_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent; color: #0F172A;")
+                frame._val_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent; color: #112D4E;")
             if hasattr(frame, "_sub_lbl"):
                 frame._sub_lbl.setStyleSheet("font-size: 11px; background: transparent; color: #16A34A;")
 
@@ -450,7 +451,7 @@ class RiwayatTransaksiPage(QWidget):
         self.table.setRowCount(0)
         self.table.setRowCount(len(data))
         is_dark = (db.get_setting("app_theme", "light") == "dark")
-        text_primary = "#F1F5F9" if is_dark else "#1E293B"
+        text_primary = "#F9FAFB" if is_dark else "#112D4E"
         text_muted = "#94A3B8" if is_dark else "#64748B"
 
         for row, t in enumerate(data):
@@ -458,7 +459,7 @@ class RiwayatTransaksiPage(QWidget):
 
             # ── Col 0: Order ID (bold blue) ──
             order_id_item = QTableWidgetItem(f"#{t['no_invoice'][-6:] if len(t['no_invoice']) > 6 else t['no_invoice']}")
-            order_id_item.setForeground(QColor("#3B82F6"))
+            order_id_item.setForeground(QColor("#3F72AF"))
             order_id_item.setFont(QFont("Segoe UI", 10, QFont.Bold))
             order_id_item.setData(Qt.UserRole, t["id"])
             self.table.setItem(row, 0, order_id_item)
@@ -538,7 +539,7 @@ class RiwayatTransaksiPage(QWidget):
             self.table.setCellWidget(row, 3, status_widget)
 
             # ── Col 4: Total ──
-            total_color = "#94A3B8" if t["status"] == "void" else ("#F1F5F9" if is_dark else "#1E293B")
+            total_color = "#94A3B8" if t["status"] == "void" else ("#F9FAFB" if is_dark else "#112D4E")
             total_item = QTableWidgetItem(format_rupiah(t["total"]))
             total_item.setForeground(QColor(total_color))
             total_item.setFont(QFont("Segoe UI", 10, QFont.Bold))
@@ -565,9 +566,9 @@ class RiwayatTransaksiPage(QWidget):
             btn_print.setToolTip("Cetak Ulang")
             is_dark = (db.get_setting("app_theme", "dark") == "dark")
             if is_dark:
-                btn_print.setStyleSheet("QPushButton { background-color: #1A1D27; border: 1px solid #2D3250; border-radius: 6px; color: #F1F5F9; } QPushButton:hover { background-color: #21263A; }")
+                btn_print.setStyleSheet("QPushButton { background-color: #112D4E; border: 1px solid #274568; border-radius: 6px; color: #F9FAFB; } QPushButton:hover { background-color: #17324F; }")
             else:
-                btn_print.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 6px; color: #1E293B; } QPushButton:hover { background-color: #F1F5F9; }")
+                btn_print.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 6px; color: #112D4E; } QPushButton:hover { background-color: #F9FAFB; }")
             btn_print.setCursor(QCursor(Qt.PointingHandCursor))
             btn_print.clicked.connect(lambda _, inv=t["no_invoice"]: self._reprint_invoice(inv))
             action_l.addWidget(btn_print)
@@ -728,9 +729,9 @@ class RiwayatTransaksiPage(QWidget):
         for card in [self.card_penjualan, self.card_transaksi, self.card_top_bayar, self.card_perhatian]:
             self._apply_stat_card_theme(card)
         if hasattr(self, "detail_text"):
-            bg = "#1A1D27" if is_dark else "#F8FAFC"
-            color = "#F1F5F9" if is_dark else "#1E293B"
-            border = "#2D3250" if is_dark else "#E2E8F0"
+            bg = "#112D4E" if is_dark else "#F9FAFB"
+            color = "#F9FAFB" if is_dark else "#112D4E"
+            border = "#274568" if is_dark else "#E5E7EB"
             self.detail_text.setStyleSheet(f"""
                 QTextEdit {{
                     background-color: {bg};

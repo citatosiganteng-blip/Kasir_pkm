@@ -16,10 +16,12 @@ from database.db import db
 from database.models import Barang
 from utils.helpers import format_rupiah
 from auth.auth_manager import auth
+from ui.dashboard import _rgba
 from .barang_form import BarangFormDialog
 import csv
 import os
 from datetime import datetime
+from ui.widgets import ThemedComboBox
 
 ITEMS_PER_PAGE = 10
 
@@ -27,11 +29,12 @@ ITEMS_PER_PAGE = 10
 class StatCardBarang(QFrame):
     """Kartu statistik untuk halaman barang"""
 
-    def __init__(self, title, value, subtitle, icon, icon_bg, parent=None):
+    def __init__(self, title, value, subtitle, icon, icon_color, parent=None):
         super().__init__(parent)
         self.setObjectName("stat_card")
         self.setMinimumHeight(100)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.icon_color = icon_color
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
@@ -57,49 +60,52 @@ class StatCardBarang(QFrame):
         layout.addLayout(text_layout)
         layout.addStretch()
 
-        # Icon box
-        icon_frame = QFrame()
-        icon_frame.setFixedSize(52, 52)
-        icon_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {icon_bg};
-                border-radius: 12px;
-            }}
-        """)
-        icon_layout = QHBoxLayout(icon_frame)
+        # Icon box (warna pastel lembut, senada dengan badge di Dashboard)
+        self.icon_frame = QFrame()
+        self.icon_frame.setFixedSize(52, 52)
+        icon_layout = QHBoxLayout(self.icon_frame)
         icon_layout.setContentsMargins(0, 0, 0, 0)
         icon_lbl = QLabel(icon)
         icon_lbl.setAlignment(Qt.AlignCenter)
         icon_lbl.setStyleSheet("font-size: 22px; background: transparent;")
         icon_layout.addWidget(icon_lbl)
-        layout.addWidget(icon_frame)
+        layout.addWidget(self.icon_frame)
 
         self._apply_theme()
 
     def _apply_theme(self):
         theme = db.get_setting("app_theme", "dark")
+        icon_alpha = 0.13 if theme == "dark" else 0.08
+        border_alpha = 0.27 if theme == "dark" else 0.19
+        self.icon_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {_rgba(self.icon_color, icon_alpha)};
+                border: 1px solid {_rgba(self.icon_color, border_alpha)};
+                border-radius: 12px;
+            }}
+        """)
         if theme == "dark":
             self.setStyleSheet("""
                 QFrame#stat_card {
-                    background-color: #1A1D27;
-                    border: 1px solid #2D3250;
+                    background-color: #112D4E;
+                    border: 1px solid #274568;
                     border-radius: 12px;
                 }
             """)
             self.title_lbl.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: transparent;")
-            self.value_lbl.setStyleSheet("color: #F1F5F9; font-size: 28px; font-weight: 800; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #F9FAFB; font-size: 28px; font-weight: 800; background: transparent;")
             if hasattr(self, 'sub_lbl'):
                 self.sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         else:
             self.setStyleSheet("""
                 QFrame#stat_card {
                     background-color: #FFFFFF;
-                    border: 1px solid #E2E8F0;
+                    border: 1px solid #E5E7EB;
                     border-radius: 12px;
                 }
             """)
             self.title_lbl.setStyleSheet("color: #64748B; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; background: transparent;")
-            self.value_lbl.setStyleSheet("color: #1E293B; font-size: 28px; font-weight: 800; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #112D4E; font-size: 28px; font-weight: 800; background: transparent;")
             if hasattr(self, 'sub_lbl'):
                 self.sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
 
@@ -139,15 +145,15 @@ class BarangPage(QWidget):
 
         self.card_total = StatCardBarang(
             "Total Produk", "0", "⬆ Memuat data...",
-            "📦", "#1E3A5F"
+            "📦", "#3F72AF"
         )
         self.card_menipis = StatCardBarang(
             "Stok Menipis", "0", "⚠ Perlu restock segera",
-            "🛒", "#7C3D12"
+            "🛒", "#F59E0B"
         )
         self.card_habis = StatCardBarang(
             "Stok Habis", "0", "⊘ Tidak tersedia di etalase",
-            "🚫", "#7F1D1D"
+            "🚫", "#EF4444"
         )
 
         cards_layout.addWidget(self.card_total)
@@ -167,7 +173,7 @@ class BarangPage(QWidget):
         toolbar.addWidget(self.search_input, 2)
 
         # Kategori filter
-        self.kategori_filter = QComboBox()
+        self.kategori_filter = ThemedComboBox()
         self.kategori_filter.addItem("Semua Kategori")
         self.kategori_filter.setFixedHeight(40)
         self.kategori_filter.setMinimumWidth(150)
@@ -175,7 +181,7 @@ class BarangPage(QWidget):
         toolbar.addWidget(self.kategori_filter)
 
         # Sort filter
-        self.sort_filter = QComboBox()
+        self.sort_filter = ThemedComboBox()
         self.sort_filter.addItems(["Urutkan: Terbaru", "Nama A-Z", "Stok Terendah", "Harga Tertinggi"])
         self.sort_filter.setFixedHeight(40)
         self.sort_filter.setMinimumWidth(170)
@@ -420,9 +426,9 @@ class BarangPage(QWidget):
     def _render_table(self, data: list):
         """Render data ke tabel"""
         is_dark = (db.get_setting("app_theme", "light") == "dark")
-        text_primary = "#F1F5F9" if is_dark else "#1E293B"
+        text_primary = "#F9FAFB" if is_dark else "#112D4E"
         text_muted = "#94A3B8" if is_dark else "#64748B"
-        icon_bg = "#21263A" if is_dark else "#F1F5F9"
+        icon_bg = "#17324F" if is_dark else "#F9FAFB"
 
         self.table.clearContents()
         self.table.setRowCount(0)

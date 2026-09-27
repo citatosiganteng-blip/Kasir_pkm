@@ -23,6 +23,7 @@ from PyQt5.QtGui import (
 from sqlalchemy import func
 from database.db import db
 from database.models import Transaksi, TransaksiDetail, Pengeluaran, Barang
+from ui.dashboard import _rgba
 from utils.helpers import (
     format_rupiah, format_rupiah_short, format_tanggal, format_datetime,
     get_today_range, get_month_range
@@ -95,18 +96,18 @@ class BarChartWidget(QWidget):
         is_dark = (theme == "dark")
 
         # Color palettes matching reference dashboard
-        grid_color = QColor("#22283A" if is_dark else "#E2E8F0")
+        grid_color = QColor("#22283A" if is_dark else "#E5E7EB")
         axis_text_color = QColor("#94A3B8" if is_dark else "#64748B")
 
         # Regular bar colors (slate blue gradient)
-        bar_top_normal = QColor("#465F87" if is_dark else "#60A5FA")
-        bar_bot_normal = QColor("#2B3D5B" if is_dark else "#2563EB")
+        bar_top_normal = QColor("#465F87" if is_dark else "#6B93C2")
+        bar_bot_normal = QColor("#2B3D5B" if is_dark else "#3F72AF")
 
         # Peak bar highlight colors (Soft light blue/indigo like reference mockup)
         bar_top_peak = QColor("#C7D2FE" if is_dark else "#1E40AF")
-        bar_bot_peak = QColor("#93C5FD" if is_dark else "#3B82F6")
+        bar_bot_peak = QColor("#93C5FD" if is_dark else "#3F72AF")
 
-        hover_outline = QColor("#FFFFFF" if is_dark else "#1E293B")
+        hover_outline = QColor("#FFFFFF" if is_dark else "#112D4E")
 
         w = self.width()
         h = self.height()
@@ -364,10 +365,10 @@ class LaporanPage(QWidget):
         cards_row = QHBoxLayout()
         cards_row.setSpacing(14)
 
-        self.card_pendapatan = self._make_stat_card("Total Pendapatan", "Rp 0", "+0% dari kemarin", "📈", "#1E3A5F")
-        self.card_transaksi = self._make_stat_card("Total Transaksi", "0 Transaksi", "+0% dari kemarin", "📋", "#14532D")
-        self.card_rata = self._make_stat_card("Rata-rata Peranjang", "Rp 0", "+0% dari kemarin", "🛍", "#7C3D12")
-        self.card_terjual = self._make_stat_card("Barang Terjual", "0 Unit", "+0% dari kemarin", "📦", "#4C1D95")
+        self.card_pendapatan = self._make_stat_card("Total Pendapatan", "Rp 0", "+0% dari kemarin", "📈", "#3F72AF")
+        self.card_transaksi = self._make_stat_card("Total Transaksi", "0 Transaksi", "+0% dari kemarin", "📋", "#10B981")
+        self.card_rata = self._make_stat_card("Rata-rata Peranjang", "Rp 0", "+0% dari kemarin", "🛍", "#F59E0B")
+        self.card_terjual = self._make_stat_card("Barang Terjual", "0 Unit", "+0% dari kemarin", "📦", "#8B5CF6")
 
         for c in [self.card_pendapatan, self.card_transaksi, self.card_rata, self.card_terjual]:
             cards_row.addWidget(c)
@@ -392,7 +393,7 @@ class LaporanPage(QWidget):
         chart_title_row.addWidget(chart_title_lbl)
         chart_title_row.addStretch()
         legend_dot = QLabel("●")
-        legend_dot.setStyleSheet("color: #3B82F6; font-size: 14px; background: transparent;")
+        legend_dot.setStyleSheet("color: #3F72AF; font-size: 14px; background: transparent;")
         chart_title_row.addWidget(legend_dot)
         legend_lbl = QLabel("Pendapatan (Rp)")
         legend_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
@@ -438,7 +439,7 @@ class LaporanPage(QWidget):
         # Total metode
         sep2 = QFrame()
         sep2.setFixedHeight(1)
-        sep2.setStyleSheet("background: #2D3250;")
+        sep2.setStyleSheet("background: #274568;")
         payment_layout.addWidget(sep2)
 
         self.total_metode_lbl = QLabel("Total Metode    100% Terverifikasi")
@@ -467,7 +468,7 @@ class LaporanPage(QWidget):
         produk_header.addStretch()
 
         self.produk_search = QLabel("🔍 Cari produk terlaris...")
-        self.produk_search.setStyleSheet("color: #64748B; font-size: 12px; background: #21263A; border-radius: 6px; padding: 6px 12px;")
+        self.produk_search.setStyleSheet("color: #64748B; font-size: 12px; background: #17324F; border-radius: 6px; padding: 6px 12px;")
         produk_header.addWidget(self.produk_search)
         produk_layout.addLayout(produk_header)
 
@@ -526,7 +527,7 @@ class LaporanPage(QWidget):
         self._daily_data = []
         self._expense_data = []
 
-    def _make_stat_card(self, title, value, subtitle, icon, icon_bg):
+    def _make_stat_card(self, title, value, subtitle, icon, icon_color):
         frame = QFrame()
         frame.setObjectName("laporan_stat_card")
         frame.setMinimumHeight(110)
@@ -541,7 +542,6 @@ class LaporanPage(QWidget):
 
         icon_frame = QFrame()
         icon_frame.setFixedSize(38, 38)
-        icon_frame.setStyleSheet(f"background-color: {icon_bg}; border-radius: 9px;")
         icon_l = QHBoxLayout(icon_frame)
         icon_l.setContentsMargins(0, 0, 0, 0)
         icon_lbl = QLabel(icon)
@@ -567,38 +567,50 @@ class LaporanPage(QWidget):
         frame._title_lbl = title_lbl
         frame._val_lbl = val_lbl
         frame._sub_lbl = sub_lbl
+        frame._icon_frame = icon_frame
+        frame._icon_color = icon_color
         self._apply_stat_card_style(frame)
         return frame
 
     def _apply_stat_card_style(self, frame):
         theme = db.get_setting("app_theme", "dark")
         is_dark = (theme == "dark")
+        if hasattr(frame, "_icon_frame"):
+            icon_alpha = 0.13 if is_dark else 0.08
+            border_alpha = 0.27 if is_dark else 0.19
+            frame._icon_frame.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {_rgba(frame._icon_color, icon_alpha)};
+                    border: 1px solid {_rgba(frame._icon_color, border_alpha)};
+                    border-radius: 9px;
+                }}
+            """)
         if is_dark:
             frame.setStyleSheet("""
                 QFrame#laporan_stat_card {
-                    background-color: #1A1D27;
-                    border: 1px solid #2D3250;
+                    background-color: #112D4E;
+                    border: 1px solid #274568;
                     border-radius: 12px;
                 }
             """)
             if hasattr(frame, "_title_lbl"):
                 frame._title_lbl.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: 600; background: transparent;")
             if hasattr(frame, "_val_lbl"):
-                frame._val_lbl.setStyleSheet("color: #F8FAFC; font-size: 20px; font-weight: 800; background: transparent;")
+                frame._val_lbl.setStyleSheet("color: #F9FAFB; font-size: 20px; font-weight: 800; background: transparent;")
             if hasattr(frame, "_sub_lbl"):
                 frame._sub_lbl.setStyleSheet("color: #22C55E; font-size: 11px; background: transparent;")
         else:
             frame.setStyleSheet("""
                 QFrame#laporan_stat_card {
                     background-color: #FFFFFF;
-                    border: 1px solid #E2E8F0;
+                    border: 1px solid #E5E7EB;
                     border-radius: 12px;
                 }
             """)
             if hasattr(frame, "_title_lbl"):
                 frame._title_lbl.setStyleSheet("color: #64748B; font-size: 11px; font-weight: 600; background: transparent;")
             if hasattr(frame, "_val_lbl"):
-                frame._val_lbl.setStyleSheet("color: #0F172A; font-size: 20px; font-weight: 800; background: transparent;")
+                frame._val_lbl.setStyleSheet("color: #112D4E; font-size: 20px; font-weight: 800; background: transparent;")
             if hasattr(frame, "_sub_lbl"):
                 frame._sub_lbl.setStyleSheet("color: #16A34A; font-size: 11px; background: transparent;")
 
@@ -812,11 +824,13 @@ class LaporanPage(QWidget):
         # Clear old rows
         while self._payment_rows_layout.count():
             item = self._payment_rows_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
 
         METHOD_COLORS = {
-            "Qris": "#3B82F6",
+            "Qris": "#3F72AF",
             "Tunai": "#10B981",
             "Cash": "#10B981",
             "Debit": "#F59E0B",
@@ -847,7 +861,7 @@ class LaporanPage(QWidget):
 
             # Progress bar
             is_dark = (db.get_setting("app_theme", "dark") == "dark")
-            bar_bg_color = "#2D3250" if is_dark else "#E2E8F0"
+            bar_bg_color = "#274568" if is_dark else "#E5E7EB"
             text_muted = "#94A3B8" if is_dark else "#64748B"
             pct_lbl.setStyleSheet(f"color: {text_muted}; font-size: 11px; background: transparent;")
 
@@ -899,13 +913,13 @@ class LaporanPage(QWidget):
         self.product_table.setRowCount(0)
         self.product_table.setRowCount(len(results))
         is_dark = (db.get_setting("app_theme", "dark") == "dark")
-        text_primary = "#F1F5F9" if is_dark else "#1E293B"
+        text_primary = "#F9FAFB" if is_dark else "#112D4E"
         text_muted = "#94A3B8" if is_dark else "#64748B"
 
         TERJUAL_COLORS_DARK = ["#14532D", "#1E3A5F", "#4C1D95", "#7C3D12", "#7F1D1D"]
         TERJUAL_TEXT_DARK = ["#86EFAC", "#93C5FD", "#C4B5FD", "#FDE047", "#FCA5A5"]
-        TERJUAL_COLORS_LIGHT = ["#DCFCE7", "#EFF6FF", "#F3E8FF", "#FEF3C7", "#FEE2E2"]
-        TERJUAL_TEXT_LIGHT = ["#15803D", "#1D4ED8", "#6D28D9", "#B45309", "#B91C1C"]
+        TERJUAL_COLORS_LIGHT = ["#DCFCE7", "#DBE2EF", "#F3E8FF", "#FEF3C7", "#FEE2E2"]
+        TERJUAL_TEXT_LIGHT = ["#15803D", "#2F5A8C", "#6D28D9", "#B45309", "#B91C1C"]
         TERJUAL_BORDER_LIGHT = ["#BBF7D0", "#BFDBFE", "#DDD6FE", "#FDE68A", "#FECACA"]
 
         for row, r in enumerate(results):
@@ -938,7 +952,7 @@ class LaporanPage(QWidget):
             thumb = QLabel(self._get_emoji(r.nama_barang, kat))
             thumb.setFixedSize(34, 34)
             thumb.setAlignment(Qt.AlignCenter)
-            icon_bg = "#21263A" if is_dark else "#F1F5F9"
+            icon_bg = "#17324F" if is_dark else "#F9FAFB"
             thumb.setStyleSheet(f"background-color: {icon_bg}; border-radius: 8px; font-size: 16px;")
             prod_l.addWidget(thumb)
 
@@ -1278,8 +1292,8 @@ class LaporanPage(QWidget):
         if hasattr(self, "bar_chart"):
             self.bar_chart.update()
         if hasattr(self, "produk_search"):
-            bg = "#21263A" if is_dark else "#F1F5F9"
+            bg = "#17324F" if is_dark else "#F9FAFB"
             color = "#94A3B8" if is_dark else "#64748B"
-            border = "1px solid #2D3250" if is_dark else "1px solid #E2E8F0"
+            border = "1px solid #274568" if is_dark else "1px solid #E5E7EB"
             self.produk_search.setStyleSheet(f"color: {color}; font-size: 12px; background: {bg}; border: {border}; border-radius: 6px; padding: 6px 12px;")
         self._load_all()

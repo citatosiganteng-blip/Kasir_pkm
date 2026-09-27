@@ -17,10 +17,23 @@ from database.models import Transaksi, Barang, Pengeluaran
 from utils.helpers import format_rupiah, format_rupiah_short, format_datetime, get_today_range, get_month_range
 
 
+def _rgba(hex_color: str, alpha: float) -> str:
+    """Ubah '#RRGGBB' + alpha (0-1) jadi rgba(r,g,b,a) yang aman dipakai di
+    Qt QSS. TIDAK memakai hex 8-digit karena Qt membaca itu sebagai
+    #AARRGGBB (alpha di depan), sedangkan pola lama di file ini menulis
+    alpha sebagai akhiran gaya CSS3 web (#RRGGBBAA) -> salah baca oleh Qt,
+    menghasilkan warna badge yang jauh lebih pekat/gelap dari yang dimaksud."""
+    hex_color = hex_color.lstrip("#")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
 class StatCard(QFrame):
     """Kartu statistik untuk dashboard yang adaptif terhadap mode terang / gelap"""
     def __init__(self, title: str, value: str, icon: str,
-                 subtitle: str = "", color: str = "#6C63FF", parent=None):
+                 subtitle: str = "", color: str = "#3F72AF", parent=None):
         super().__init__(parent)
         self.setObjectName("stat_card")
         self.setFrameStyle(QFrame.NoFrame)
@@ -71,46 +84,46 @@ class StatCard(QFrame):
             self.setStyleSheet(f"""
                 QFrame#stat_card {{
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #1A1D27, stop:1 #1E2235);
-                    border: 1px solid #2D3250;
+                        stop:0 #112D4E, stop:1 #1E2235);
+                    border: 1px solid #274568;
                     border-radius: 14px;
                     min-height: 105px;
                 }}
                 QFrame#stat_card:hover {{
                     border-color: {self.color};
                     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                        stop:0 #1E2235, stop:1 #21263A);
+                        stop:0 #1E2235, stop:1 #17324F);
                 }}
                 QFrame#stat_card_icon {{
-                    background-color: {self.color}22;
+                    background-color: {_rgba(self.color, 0.13)};
                     border-radius: 12px;
-                    border: 1px solid {self.color}44;
+                    border: 1px solid {_rgba(self.color, 0.27)};
                 }}
             """)
             self.title_lbl.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600; background: transparent;")
-            self.value_lbl.setStyleSheet("color: #F1F5F9; font-size: 20px; font-weight: 800; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #F9FAFB; font-size: 20px; font-weight: 800; background: transparent;")
             if self.sub_lbl:
                 self.sub_lbl.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         else:
             self.setStyleSheet(f"""
                 QFrame#stat_card {{
                     background-color: #FFFFFF;
-                    border: 1.5px solid #E2E8F0;
+                    border: 1.5px solid #E5E7EB;
                     border-radius: 14px;
                     min-height: 105px;
                 }}
                 QFrame#stat_card:hover {{
                     border-color: {self.color};
-                    background-color: #F8FAFC;
+                    background-color: #F9FAFB;
                 }}
                 QFrame#stat_card_icon {{
-                    background-color: {self.color}15;
+                    background-color: {_rgba(self.color, 0.08)};
                     border-radius: 12px;
-                    border: 1px solid {self.color}30;
+                    border: 1px solid {_rgba(self.color, 0.19)};
                 }}
             """)
             self.title_lbl.setStyleSheet("color: #64748B; font-size: 12px; font-weight: 600; background: transparent;")
-            self.value_lbl.setStyleSheet("color: #1E293B; font-size: 20px; font-weight: 800; background: transparent;")
+            self.value_lbl.setStyleSheet("color: #112D4E; font-size: 20px; font-weight: 800; background: transparent;")
             if self.sub_lbl:
                 self.sub_lbl.setStyleSheet("color: #94A3B8; font-size: 11px; background: transparent;")
 
@@ -146,7 +159,7 @@ class DashboardPage(QWidget):
                 card.apply_theme(theme)
         if hasattr(self, "_divider"):
             self._divider.setStyleSheet(
-                f"background: {'#2D3250' if theme == 'dark' else '#E2E8F0'}; max-height: 1px; border: none;"
+                f"background: {'#274568' if theme == 'dark' else '#E5E7EB'}; max-height: 1px; border: none;"
             )
         self._load_data()
 
@@ -197,7 +210,7 @@ class DashboardPage(QWidget):
         self._divider = QFrame()
         self._divider.setFrameShape(QFrame.HLine)
         self._divider.setStyleSheet(
-            f"background: {'#2D3250' if self._current_theme == 'dark' else '#E2E8F0'}; max-height: 1px; border: none;"
+            f"background: {'#274568' if self._current_theme == 'dark' else '#E5E7EB'}; max-height: 1px; border: none;"
         )
         main_layout.addWidget(self._divider)
 
@@ -211,7 +224,7 @@ class DashboardPage(QWidget):
         )
         self.card_transaksi = StatCard(
             "Transaksi Hari Ini", "0", "🧾",
-            "Jumlah transaksi berhasil", "#2563EB"
+            "Jumlah transaksi berhasil", "#3F72AF"
         )
         self.card_pengeluaran = StatCard(
             "Pengeluaran Hari Ini", "Rp 0", "💸",
@@ -230,7 +243,7 @@ class DashboardPage(QWidget):
         # Bulan ini
         self.card_bulanan = StatCard(
             "Pemasukan Bulan Ini", "Rp 0", "📈",
-            "Akumulasi penjualan", "#2563EB"
+            "Akumulasi penjualan", "#3F72AF"
         )
         self.card_laba = StatCard(
             "Estimasi Laba Bersih", "Rp 0", "📊",
@@ -416,8 +429,10 @@ class DashboardPage(QWidget):
         # Clear old widgets
         while self.low_stock_container.count():
             child = self.low_stock_container.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+            w = child.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
 
         if not low_stock_data:
             no_alert = QLabel("✅ Semua stok dalam kondisi aman")

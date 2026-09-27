@@ -17,6 +17,7 @@ from services.backup_service import BackupService
 from services.drawer_service import DrawerService
 from auth.auth_manager import auth
 from utils.helpers import format_datetime
+from ui.widgets import ThemedComboBox
 
 
 class SettingsPage(QWidget):
@@ -120,7 +121,7 @@ class SettingsPage(QWidget):
         form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignRight)
 
-        self.tax_pkp_combo = QComboBox()
+        self.tax_pkp_combo = ThemedComboBox()
         self.tax_pkp_combo.addItems(["Non-PKP (Bukan Pengusaha Kena Pajak)", "PKP (Pengusaha Kena Pajak)"])
         self.tax_pkp_combo.setFixedHeight(40)
 
@@ -179,7 +180,7 @@ class SettingsPage(QWidget):
         form.setSpacing(12)
         form.setLabelAlignment(Qt.AlignRight)
 
-        self.printer_type_combo = QComboBox()
+        self.printer_type_combo = ThemedComboBox()
         self.printer_type_combo.addItems(["usb", "serial", "network"])
         self.printer_type_combo.setFixedHeight(40)
         form.addRow(self._label("Tipe Printer:"), self.printer_type_combo)
@@ -190,7 +191,7 @@ class SettingsPage(QWidget):
         self.printer_host_input = self._input("192.168.1.100")
         form.addRow(self._label("IP Network:"), self.printer_host_input)
 
-        self.printer_width_combo = QComboBox()
+        self.printer_width_combo = ThemedComboBox()
         self.printer_width_combo.addItems(["58", "80"])
         self.printer_width_combo.setFixedHeight(40)
         form.addRow(self._label("Lebar Kertas (mm):"), self.printer_width_combo)

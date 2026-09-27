@@ -61,7 +61,7 @@ def get_product_icon_and_bg(nama: str, kategori: str):
     elif "keripik" in name_lower or "snack" in name_lower or "singkong" in name_lower:
         return "🍟", "#FFFBEB"  # Soft yellow
     elif "aqua" in name_lower or "air" in name_lower:
-        return "🥤", "#EFF6FF"  # Soft blue
+        return "🥤", "#DBE2EF"  # Soft blue
     elif "mie" in name_lower or "indomie" in name_lower:
         return "🍜", "#FEF3C7"
     elif "sabun" in name_lower:
@@ -69,9 +69,9 @@ def get_product_icon_and_bg(nama: str, kategori: str):
     elif "gigi" in name_lower or "pepsodent" in name_lower:
         return "🪥", "#E0F2FE"
     elif "beras" in name_lower:
-        return "🍚", "#F8FAFC"
+        return "🍚", "#F9FAFB"
     elif "minuman" in cat_lower:
-        return "🧋", "#EFF6FF"
+        return "🧋", "#DBE2EF"
     elif "makanan" in cat_lower:
         return "🍱", "#FEF3C7"
     elif "jajanan" in cat_lower:
@@ -82,7 +82,7 @@ def get_product_icon_and_bg(nama: str, kategori: str):
         return "🌾", "#FAF5FF"
     elif "elektronik" in cat_lower:
         return "🔌", "#E0F2FE"
-    return "📦", "#F1F5F9"
+    return "📦", "#F9FAFB"
 
 
 class ProductCard(QFrame):
@@ -103,25 +103,25 @@ class ProductCard(QFrame):
         if is_dark:
             self.setStyleSheet("""
                 QFrame#product_card {
-                    background-color: #1A1D27;
-                    border: 1.5px solid #2D3250;
+                    background-color: #112D4E;
+                    border: 1.5px solid #274568;
                     border-radius: 14px;
                 }
                 QFrame#product_card:hover {
-                    border-color: #3B82F6;
-                    background-color: #21263A;
+                    border-color: #3F72AF;
+                    background-color: #17324F;
                 }
             """)
         else:
             self.setStyleSheet("""
                 QFrame#product_card {
                     background-color: #FFFFFF;
-                    border: 1.5px solid #E2E8F0;
+                    border: 1.5px solid #E5E7EB;
                     border-radius: 14px;
                 }
                 QFrame#product_card:hover {
-                    border-color: #2563EB;
-                    background-color: #FAFAFA;
+                    border-color: #3F72AF;
+                    background-color: #F9FAFB;
                 }
             """)
 
@@ -137,9 +137,9 @@ class ProductCard(QFrame):
         if is_dark:
             icon_container.setStyleSheet("""
                 QFrame {
-                    background-color: #21263A;
+                    background-color: #17324F;
                     border-radius: 34px;
-                    border: 1px solid #2D3250;
+                    border: 1px solid #274568;
                 }
             """)
         else:
@@ -165,7 +165,7 @@ class ProductCard(QFrame):
         name_lbl.setAlignment(Qt.AlignCenter)
         name_lbl.setWordWrap(True)
         name_lbl.setMaximumHeight(36)
-        name_color = "#F1F5F9" if is_dark else "#1E293B"
+        name_color = "#F9FAFB" if is_dark else "#112D4E"
         name_lbl.setStyleSheet(f"""
             color: {name_color};
             font-size: 13px;
@@ -177,7 +177,7 @@ class ProductCard(QFrame):
         # Price
         price_lbl = QLabel(format_rupiah(self.barang.harga_jual))
         price_lbl.setAlignment(Qt.AlignCenter)
-        price_color = "#60A5FA" if is_dark else "#2563EB"
+        price_color = "#6B93C2" if is_dark else "#3F72AF"
         price_lbl.setStyleSheet(f"""
             color: {price_color};
             font-size: 12px;
@@ -234,8 +234,8 @@ class CartItemRow(QFrame):
         if is_dark:
             self.setStyleSheet("""
                 QFrame#cart_item_row {
-                    background-color: #1A1D27;
-                    border-bottom: 1px solid #21263A;
+                    background-color: #112D4E;
+                    border-bottom: 1px solid #17324F;
                     padding: 4px 0;
                 }
             """)
@@ -243,7 +243,7 @@ class CartItemRow(QFrame):
             self.setStyleSheet("""
                 QFrame#cart_item_row {
                     background-color: #FFFFFF;
-                    border-bottom: 1px solid #F1F5F9;
+                    border-bottom: 1px solid #F9FAFB;
                     padding: 4px 0;
                 }
             """)
@@ -258,9 +258,9 @@ class CartItemRow(QFrame):
         thumb.setFixedSize(40, 40)
         if is_dark:
             thumb.setStyleSheet("""
-                background-color: #21263A;
+                background-color: #17324F;
                 border-radius: 20px;
-                border: 1px solid #2D3250;
+                border: 1px solid #274568;
             """)
         else:
             thumb.setStyleSheet(f"""
@@ -280,7 +280,7 @@ class CartItemRow(QFrame):
         info_layout = QVBoxLayout()
         info_layout.setSpacing(2)
         name_lbl = QLabel(self.item.nama)
-        name_color = "#F1F5F9" if is_dark else "#1E293B"
+        name_color = "#F9FAFB" if is_dark else "#112D4E"
         name_lbl.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {name_color}; background: transparent;")
         info_layout.addWidget(name_lbl)
 
@@ -297,7 +297,7 @@ class CartItemRow(QFrame):
 
         # Subtotal
         sub_lbl = QLabel(format_rupiah(self.item.subtotal))
-        sub_color = "#60A5FA" if is_dark else "#1E293B"
+        sub_color = "#6B93C2" if is_dark else "#112D4E"
         sub_lbl.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {sub_color}; background: transparent;")
         layout.addWidget(sub_lbl)
 
@@ -308,33 +308,33 @@ class CartItemRow(QFrame):
         if is_dark:
             btn_minus.setStyleSheet("""
                 QPushButton {
-                    background-color: #21263A;
-                    color: #CBD5E1;
-                    border: 1px solid #2D3250;
+                    background-color: #17324F;
+                    color: #E5E7EB;
+                    border: 1px solid #274568;
                     border-radius: 13px;
                     font-size: 14px;
                     font-weight: bold;
                     padding: 0;
                 }
                 QPushButton:hover {
-                    background-color: #2D3250;
-                    color: #F1F5F9;
+                    background-color: #274568;
+                    color: #F9FAFB;
                 }
             """)
         else:
             btn_minus.setStyleSheet("""
                 QPushButton {
-                    background-color: #F1F5F9;
+                    background-color: #F9FAFB;
                     color: #475569;
-                    border: 1px solid #E2E8F0;
+                    border: 1px solid #E5E7EB;
                     border-radius: 13px;
                     font-size: 14px;
                     font-weight: bold;
                     padding: 0;
                 }
                 QPushButton:hover {
-                    background-color: #E2E8F0;
-                    color: #1E293B;
+                    background-color: #E5E7EB;
+                    color: #112D4E;
                 }
             """)
         btn_minus.clicked.connect(lambda: self.qty_changed.emit(self.item.qty - 1))
@@ -347,33 +347,33 @@ class CartItemRow(QFrame):
         if is_dark:
             btn_plus.setStyleSheet("""
                 QPushButton {
-                    background-color: #21263A;
-                    color: #CBD5E1;
-                    border: 1px solid #2D3250;
+                    background-color: #17324F;
+                    color: #E5E7EB;
+                    border: 1px solid #274568;
                     border-radius: 13px;
                     font-size: 14px;
                     font-weight: bold;
                     padding: 0;
                 }
                 QPushButton:hover {
-                    background-color: #2D3250;
-                    color: #F1F5F9;
+                    background-color: #274568;
+                    color: #F9FAFB;
                 }
             """)
         else:
             btn_plus.setStyleSheet("""
                 QPushButton {
-                    background-color: #F1F5F9;
+                    background-color: #F9FAFB;
                     color: #475569;
-                    border: 1px solid #E2E8F0;
+                    border: 1px solid #E5E7EB;
                     border-radius: 13px;
                     font-size: 14px;
                     font-weight: bold;
                     padding: 0;
                 }
                 QPushButton:hover {
-                    background-color: #E2E8F0;
-                    color: #1E293B;
+                    background-color: #E5E7EB;
+                    color: #112D4E;
                 }
             """)
         btn_plus.clicked.connect(lambda: self.qty_changed.emit(self.item.qty + 1))
@@ -511,14 +511,7 @@ class KasirPage(QWidget):
         cart_header.addWidget(self.cart_title)
 
         self.item_count_badge = QLabel("0 item")
-        self.item_count_badge.setStyleSheet("""
-            background-color: #EFF6FF;
-            color: #2563EB;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 3px 10px;
-            border-radius: 10px;
-        """)
+        self._style_item_count_badge()
         cart_header.addWidget(self.item_count_badge)
         cart_header.addStretch()
 
@@ -635,74 +628,46 @@ class KasirPage(QWidget):
         # QRIS Payment Info Panel — tampil saat metode "QRIS/E-Wallet" dipilih,
         # SEBELUM transaksi diproses, supaya pelanggan bisa scan dulu.
         self.qris_frame = QFrame()
-        self.qris_frame.setStyleSheet("""
-            QFrame {
-                background: #F8FAFC;
-                border: 1.5px solid #2563EB;
-                border-radius: 10px;
-            }
-        """)
         qris_layout = QVBoxLayout(self.qris_frame)
         qris_layout.setContentsMargins(12, 12, 12, 12)
         qris_layout.setSpacing(6)
         qris_layout.setAlignment(Qt.AlignCenter)
 
-        qris_title = QLabel("📲 Scan QRIS untuk Membayar")
-        qris_title.setAlignment(Qt.AlignCenter)
-        qris_title.setStyleSheet("color: #2563EB; font-size: 12px; font-weight: 700; background: transparent;")
-        qris_layout.addWidget(qris_title)
+        self.qris_title = QLabel("📲 Scan QRIS untuk Membayar")
+        self.qris_title.setAlignment(Qt.AlignCenter)
+        qris_layout.addWidget(self.qris_title)
 
         self.qris_img_lbl = QLabel()
         self.qris_img_lbl.setAlignment(Qt.AlignCenter)
         self.qris_img_lbl.setWordWrap(True)
         self.qris_img_lbl.setMinimumHeight(180)
-        self.qris_img_lbl.setStyleSheet("""
-            background: white;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 8px;
-            color: #94A3B8;
-            font-size: 11px;
-        """)
+        # Latar kotak QRIS SENGAJA selalu putih di kedua mode — kode QR
+        # butuh kontras hitam-di-atas-putih supaya tetap bisa dipindai.
         qris_layout.addWidget(self.qris_img_lbl)
 
         right_layout.addWidget(self.qris_frame)
         self.qris_frame.hide()
+        self._style_qris_panel()
 
         # Transfer Bank Info Panel — tampil saat metode "Metode Lain" dipilih,
         # SEBELUM transaksi diproses, supaya pelanggan tahu nomor rekening tujuan.
         self.transfer_frame = QFrame()
-        self.transfer_frame.setStyleSheet("""
-            QFrame {
-                background: #F8FAFC;
-                border: 1.5px solid #2563EB;
-                border-radius: 10px;
-            }
-        """)
         transfer_layout = QVBoxLayout(self.transfer_frame)
         transfer_layout.setContentsMargins(12, 12, 12, 12)
         transfer_layout.setSpacing(6)
 
-        transfer_title = QLabel("🏦 Info Rekening Transfer")
-        transfer_title.setAlignment(Qt.AlignCenter)
-        transfer_title.setStyleSheet("color: #2563EB; font-size: 12px; font-weight: 700; background: transparent;")
-        transfer_layout.addWidget(transfer_title)
+        self.transfer_title = QLabel("🏦 Info Rekening Transfer")
+        self.transfer_title.setAlignment(Qt.AlignCenter)
+        transfer_layout.addWidget(self.transfer_title)
 
         self.transfer_info_lbl = QLabel()
         self.transfer_info_lbl.setAlignment(Qt.AlignCenter)
         self.transfer_info_lbl.setWordWrap(True)
-        self.transfer_info_lbl.setStyleSheet("""
-            background-color: #FFFFFF;
-            color: #1E293B;
-            font-size: 12px;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #E2E8F0;
-        """)
         transfer_layout.addWidget(self.transfer_info_lbl)
 
         right_layout.addWidget(self.transfer_frame)
         self.transfer_frame.hide()
+        self._style_transfer_panel()
 
         # Big Action Button: BAYAR SEKARANG
         self.btn_checkout = QPushButton("BAYAR SEKARANG")
@@ -710,7 +675,7 @@ class KasirPage(QWidget):
         self.btn_checkout.setCursor(QCursor(Qt.PointingHandCursor))
         self.btn_checkout.setStyleSheet("""
             QPushButton {
-                background-color: #2563EB;
+                background-color: #3F72AF;
                 color: #FFFFFF;
                 border: none;
                 border-radius: 10px;
@@ -719,13 +684,13 @@ class KasirPage(QWidget):
                 letter-spacing: 0.5px;
             }
             QPushButton:hover {
-                background-color: #1D4ED8;
+                background-color: #2F5A8C;
             }
             QPushButton:pressed {
                 background-color: #1E40AF;
             }
             QPushButton:disabled {
-                background-color: #CBD5E1;
+                background-color: #E5E7EB;
                 color: #94A3B8;
             }
         """)
@@ -741,12 +706,82 @@ class KasirPage(QWidget):
     # Styling Helpers
     # =========================================================================
 
+    def _style_qris_panel(self):
+        """Panel QRIS ikut tema — kecuali kotak kode QR itu sendiri yang
+        SENGAJA selalu putih (supaya tetap kontras & bisa dipindai)."""
+        is_dark = db.get_setting("app_theme", "light") == "dark"
+        if is_dark:
+            self.qris_frame.setStyleSheet("""
+                QFrame { background: #17324F; border: 1.5px solid #3F72AF; border-radius: 10px; }
+            """)
+            self.qris_title.setStyleSheet("color: #93C5FD; font-size: 12px; font-weight: 700; background: transparent;")
+        else:
+            self.qris_frame.setStyleSheet("""
+                QFrame { background: #F9FAFB; border: 1.5px solid #3F72AF; border-radius: 10px; }
+            """)
+            self.qris_title.setStyleSheet("color: #3F72AF; font-size: 12px; font-weight: 700; background: transparent;")
+        self.qris_img_lbl.setStyleSheet("""
+            background: white;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 8px;
+            color: #94A3B8;
+            font-size: 11px;
+        """)
+
+    def _style_transfer_panel(self):
+        is_dark = db.get_setting("app_theme", "light") == "dark"
+        if is_dark:
+            self.transfer_frame.setStyleSheet("""
+                QFrame { background: #17324F; border: 1.5px solid #3F72AF; border-radius: 10px; }
+            """)
+            self.transfer_title.setStyleSheet("color: #93C5FD; font-size: 12px; font-weight: 700; background: transparent;")
+            self.transfer_info_lbl.setStyleSheet("""
+                background-color: #0B2036;
+                color: #F9FAFB;
+                font-size: 12px;
+                padding: 10px;
+                border-radius: 8px;
+                border: 1px solid #274568;
+            """)
+        else:
+            self.transfer_frame.setStyleSheet("""
+                QFrame { background: #F9FAFB; border: 1.5px solid #3F72AF; border-radius: 10px; }
+            """)
+            self.transfer_title.setStyleSheet("color: #3F72AF; font-size: 12px; font-weight: 700; background: transparent;")
+            self.transfer_info_lbl.setStyleSheet("""
+                background-color: #FFFFFF;
+                color: #112D4E;
+                font-size: 12px;
+                padding: 10px;
+                border-radius: 8px;
+                border: 1px solid #E5E7EB;
+            """)
+
+    def _style_item_count_badge(self):
+        is_dark = db.get_setting("app_theme", "light") == "dark"
+        if is_dark:
+            bg, color = "#17324F", "#93C5FD"
+        else:
+            bg, color = "#EFF3F9", "#3F72AF"
+        self.item_count_badge.setStyleSheet(f"""
+            background-color: {bg};
+            color: {color};
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 10px;
+        """)
+
     def _apply_theme_to_ui(self):
         is_dark = db.get_setting("app_theme", "light") == "dark"
+        self._style_item_count_badge()
+        self._style_qris_panel()
+        self._style_transfer_panel()
 
         # Cart title & clear button
         self.cart_title.setStyleSheet(
-            f"font-size: 16px; font-weight: 800; color: {'#F1F5F9' if is_dark else '#1E293B'}; background: transparent;"
+            f"font-size: 16px; font-weight: 800; color: {'#F9FAFB' if is_dark else '#112D4E'}; background: transparent;"
         )
         if is_dark:
             self.btn_clear.setStyleSheet("""
@@ -764,15 +799,15 @@ class KasirPage(QWidget):
             self.summary_box.setStyleSheet("""
                 QFrame {
                     background-color: #1E2235;
-                    border: 1px solid #2D3250;
+                    border: 1px solid #274568;
                     border-radius: 12px;
                     padding: 6px;
                 }
             """)
-            self.divider.setStyleSheet("background-color: #2D3250;")
+            self.divider.setStyleSheet("background-color: #274568;")
             lbl_muted = "#94A3B8"
-            lbl_text = "#F1F5F9"
-            lbl_total = "#60A5FA"
+            lbl_text = "#F9FAFB"
+            lbl_total = "#6B93C2"
         else:
             self.btn_clear.setStyleSheet("""
                 QPushButton {
@@ -788,16 +823,16 @@ class KasirPage(QWidget):
             """)
             self.summary_box.setStyleSheet("""
                 QFrame {
-                    background-color: #F8FAFC;
-                    border: 1px solid #E2E8F0;
+                    background-color: #F9FAFB;
+                    border: 1px solid #E5E7EB;
                     border-radius: 12px;
                     padding: 6px;
                 }
             """)
-            self.divider.setStyleSheet("background-color: #E2E8F0;")
+            self.divider.setStyleSheet("background-color: #E5E7EB;")
             lbl_muted = "#64748B"
-            lbl_text = "#1E293B"
-            lbl_total = "#0F172A"
+            lbl_text = "#112D4E"
+            lbl_total = "#112D4E"
 
         self.sub_lbl.setStyleSheet(f"color: {lbl_muted}; font-size: 13px; background: transparent;")
         self.tax_lbl.setStyleSheet(f"color: {lbl_muted}; font-size: 13px; background: transparent;")
@@ -817,28 +852,32 @@ class KasirPage(QWidget):
                 if is_dark:
                     b.setStyleSheet("""
                         QPushButton {
-                            background-color: #21263A;
+                            background-color: #17324F;
                             color: #93C5FD;
-                            border: 1px solid #2D3250;
+                            border: 1px solid #274568;
                             border-radius: 8px;
                             font-size: 12px;
                             font-weight: 700;
                             padding: 0 8px;
                         }
-                        QPushButton:hover { background-color: #2D3250; border-color: #3B82F6; }
+                        QPushButton:hover { background-color: #274568; border-color: #3F72AF; }
                     """)
                 else:
+                    # Sengaja pakai gaya netral (putih + border abu-abu, teks
+                    # biru) senada dengan tombol metode pembayaran lainnya —
+                    # sebelumnya latar biru pudar (#DBE2EF) di sini terlihat
+                    # seperti "belang" dibanding elemen putih lain di sekitarnya.
                     b.setStyleSheet("""
                         QPushButton {
-                            background-color: #EFF6FF;
-                            color: #1E40AF;
-                            border: 1px solid #BFDBFE;
+                            background-color: #FFFFFF;
+                            color: #3F72AF;
+                            border: 1px solid #E5E7EB;
                             border-radius: 8px;
                             font-size: 12px;
                             font-weight: 700;
                             padding: 0 8px;
                         }
-                        QPushButton:hover { background-color: #DBEAFE; }
+                        QPushButton:hover { background-color: #F9FAFB; border-color: #3F72AF; }
                     """)
 
         # Update category buttons
@@ -857,7 +896,7 @@ class KasirPage(QWidget):
         if is_active:
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #2563EB;
+                    background-color: #3F72AF;
                     color: #FFFFFF;
                     border: none;
                     border-radius: 8px;
@@ -870,18 +909,18 @@ class KasirPage(QWidget):
             if is_dark:
                 btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #21263A;
+                        background-color: #17324F;
                         color: #94A3B8;
-                        border: 1px solid #2D3250;
+                        border: 1px solid #274568;
                         border-radius: 8px;
                         font-size: 11px;
                         font-weight: 600;
                         padding: 0 10px;
                     }
                     QPushButton:hover {
-                        background-color: #2D3250;
-                        color: #F1F5F9;
-                        border-color: #3B82F6;
+                        background-color: #274568;
+                        color: #F9FAFB;
+                        border-color: #3F72AF;
                     }
                 """)
             else:
@@ -889,15 +928,15 @@ class KasirPage(QWidget):
                     QPushButton {
                         background-color: #FFFFFF;
                         color: #475569;
-                        border: 1px solid #E2E8F0;
+                        border: 1px solid #E5E7EB;
                         border-radius: 8px;
                         font-size: 11px;
                         font-weight: 600;
                         padding: 0 10px;
                     }
                     QPushButton:hover {
-                        background-color: #F8FAFC;
-                        border-color: #CBD5E1;
+                        background-color: #F9FAFB;
+                        border-color: #E5E7EB;
                     }
                 """)
 
@@ -982,8 +1021,10 @@ class KasirPage(QWidget):
         # Clear existing buttons
         while self.pills_layout.count():
             item = self.pills_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
 
         categories = ["Semua"]
         cat_set = sorted(list({b.kategori for b in self._all_barang if b.kategori}))
@@ -1007,7 +1048,7 @@ class KasirPage(QWidget):
         if is_active:
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #2563EB;
+                    background-color: #3F72AF;
                     color: #FFFFFF;
                     border: none;
                     border-radius: 17px;
@@ -1020,18 +1061,18 @@ class KasirPage(QWidget):
             if is_dark:
                 btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #1A1D27;
+                        background-color: #112D4E;
                         color: #94A3B8;
-                        border: 1px solid #2D3250;
+                        border: 1px solid #274568;
                         border-radius: 17px;
                         font-size: 13px;
                         font-weight: 600;
                         padding: 0 18px;
                     }
                     QPushButton:hover {
-                        background-color: #21263A;
-                        border-color: #3B82F6;
-                        color: #F1F5F9;
+                        background-color: #17324F;
+                        border-color: #3F72AF;
+                        color: #F9FAFB;
                     }
                 """)
             else:
@@ -1039,16 +1080,16 @@ class KasirPage(QWidget):
                     QPushButton {
                         background-color: #FFFFFF;
                         color: #475569;
-                        border: 1px solid #E2E8F0;
+                        border: 1px solid #E5E7EB;
                         border-radius: 17px;
                         font-size: 13px;
                         font-weight: 600;
                         padding: 0 18px;
                     }
                     QPushButton:hover {
-                        background-color: #F8FAFC;
-                        border-color: #CBD5E1;
-                        color: #1E293B;
+                        background-color: #F9FAFB;
+                        border-color: #E5E7EB;
+                        color: #112D4E;
                     }
                 """)
 
@@ -1066,8 +1107,10 @@ class KasirPage(QWidget):
         # Clear grid
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            w = item.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
 
         query = self.search_input.text().strip().lower()
 
@@ -1176,8 +1219,10 @@ class KasirPage(QWidget):
         # Clear items
         while self.cart_list_layout.count():
             it = self.cart_list_layout.takeAt(0)
-            if it.widget():
-                it.widget().deleteLater()
+            w = it.widget()
+            if w:
+                w.setParent(None)
+                w.deleteLater()
 
         total_items = sum(item.qty for item in self.cart)
         self.item_count_badge.setText(f"{total_items} item")

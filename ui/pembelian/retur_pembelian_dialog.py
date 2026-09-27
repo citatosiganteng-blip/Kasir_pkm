@@ -18,6 +18,7 @@ from database.db import db
 from database.models import Pembelian, ReturPembelian, ReturPembelianDetail, Barang
 from auth.auth_manager import auth
 from utils.helpers import format_rupiah, format_datetime, generate_retur_pembelian_number
+from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
 class ReturPembelianDialog(QDialog):
@@ -43,10 +44,10 @@ class ReturPembelianDialog(QDialog):
         theme = db.get_setting("app_theme", "dark")
         is_dark = (theme == "dark")
 
-        bg_col = "#0F172A" if is_dark else "#FFFFFF"
-        text_col = "#F1F5F9" if is_dark else "#0F172A"
-        card_bg = "#1E293B" if is_dark else "#F8FAFC"
-        border_col = "#334155" if is_dark else "#E2E8F0"
+        bg_col = "#112D4E" if is_dark else "#FFFFFF"
+        text_col = "#F9FAFB" if is_dark else "#112D4E"
+        card_bg = "#112D4E" if is_dark else "#F9FAFB"
+        border_col = "#334155" if is_dark else "#E5E7EB"
 
         self.setStyleSheet(f"""
             QDialog {{
@@ -66,7 +67,7 @@ class ReturPembelianDialog(QDialog):
                 gridline-color: {border_col};
             }}
             QHeaderView::section {{
-                background-color: {'#1E3A8A' if is_dark else '#EFF6FF'};
+                background-color: {'#1E3A8A' if is_dark else '#DBE2EF'};
                 color: {'#93C5FD' if is_dark else '#1E40AF'};
                 font-weight: 700;
                 padding: 6px;
@@ -159,7 +160,7 @@ class ReturPembelianDialog(QDialog):
         lbl_metode.setStyleSheet("font-size: 11px; font-weight: 600;")
         metode_box.addWidget(lbl_metode)
 
-        self.combo_metode = QComboBox()
+        self.combo_metode = ThemedComboBox()
         self.combo_metode.setFixedHeight(36)
         self.combo_metode.addItem("💳 Potong Hutang / Tagihan Tempo", "potong_hutang")
         self.combo_metode.addItem("💵 Refund Kas / Transfer Masuk", "refund_cash")

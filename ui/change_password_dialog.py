@@ -11,6 +11,7 @@ from PyQt5.QtCore import Qt, QSize
 
 from auth.auth_manager import auth
 from utils.icons import eye_icon
+from ui.widgets import apply_dialog_theme
 
 
 class ChangePasswordDialog(QDialog):
@@ -23,6 +24,7 @@ class ChangePasswordDialog(QDialog):
         self.setWindowTitle("Ganti Password Wajib 🔐")
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         self._setup_ui()
+        apply_dialog_theme(self)
         # Tinggi dihitung dari kebutuhan konten sesungguhnya supaya tidak
         # ada teks yang terpotong/klip (sebelumnya pakai ukuran tetap
         # yang terlalu pas-pasan untuk 3 kolom password + deskripsi).

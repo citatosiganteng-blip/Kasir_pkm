@@ -12,8 +12,41 @@ from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtSigna
 from PyQt5.QtGui import QFont, QColor, QLinearGradient, QPainter, QPixmap, QPainterPath
 
 import config
+from database.db import db
 from auth.auth_manager import auth
 from utils.icons import eye_icon
+
+
+LIGHT_COLORS = {
+    "frame_border": "#E5E7EB",
+    "panel_bg": "#F9FAFB",
+    "input_bg": "#FFFFFF",
+    "input_border": "#E5E7EB",
+    "input_focus_border": "#3F72AF",
+    "input_focus_bg": "#FFFFFF",
+    "text_primary": "#112D4E",
+    "text_secondary": "#5B6B84",
+    "text_muted": "#7C8CA6",
+    "hint_text": "#B8C2D1",
+    "toggle_bg": "#FFFFFF",
+    "toggle_border": "#E5E7EB",
+    "toggle_hover": "#F0F3F7",
+}
+DARK_COLORS = {
+    "frame_border": "#274568",
+    "panel_bg": "#0B2036",
+    "input_bg": "#112D4E",
+    "input_border": "#274568",
+    "input_focus_border": "#3F72AF",
+    "input_focus_bg": "#1E2235",
+    "text_primary": "#F9FAFB",
+    "text_secondary": "#94A3B8",
+    "text_muted": "#64748B",
+    "hint_text": "#35507A",
+    "toggle_bg": "#112D4E",
+    "toggle_border": "#274568",
+    "toggle_hover": "#17324F",
+}
 
 
 class LoginWindow(QWidget):
@@ -27,39 +60,78 @@ class LoginWindow(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self._drag_pos = None
+        self._theme = db.get_setting("app_theme", "light")
+        if self._theme not in ("light", "dark"):
+            self._theme = "light"
+        self._colors = LIGHT_COLORS if self._theme == "light" else DARK_COLORS
         self._setup_ui()
         self._setup_animations()
 
     def _setup_ui(self):
         # Main container
-        main_frame = QFrame(self)
-        main_frame.setGeometry(0, 0, 900, 640)
-        main_frame.setStyleSheet("""
-            QFrame {
-                background-color: #0F1117;
-                border-radius: 16px;
-                border: 1px solid #2D3250;
-            }
-        """)
+        self.main_frame = QFrame(self)
+        self.main_frame.setGeometry(0, 0, 900, 640)
+        self._apply_frame_style()
 
         # Drop shadow
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(40)
         shadow.setColor(QColor(0, 0, 0, 120))
         shadow.setOffset(0, 10)
-        main_frame.setGraphicsEffect(shadow)
+        self.main_frame.setGraphicsEffect(shadow)
 
-        layout = QHBoxLayout(main_frame)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.main_layout = QHBoxLayout(self.main_frame)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
-        # Left panel - branding
+        # Left panel - branding (selalu gelap/navy, konsisten sebagai warna brand)
         self.left_panel = self._create_left_panel()
-        layout.addWidget(self.left_panel)
+        self.main_layout.addWidget(self.left_panel)
 
-        # Right panel - login form
+        # Right panel - login form (berubah sesuai tema terang/gelap)
         self.right_panel = self._create_right_panel()
-        layout.addWidget(self.right_panel)
+        self.main_layout.addWidget(self.right_panel)
+
+    def _apply_frame_style(self):
+        # Sengaja TANPA border di tepi jendela — sebelumnya ada border tipis
+        # abu-abu (#E5E7EB) yang terlihat seperti garis/outline putih yang
+        # mengganggu ketika jendela berada di atas desktop gelap. Bayangan
+        # (drop shadow) saja sudah cukup untuk memberi batas visual.
+        self.main_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {self._colors['panel_bg']};
+                border-radius: 16px;
+                border: none;
+            }}
+        """)
+
+    def _toggle_theme(self):
+        """Ganti mode terang/gelap di layar login, tersimpan untuk sesi berikutnya."""
+        self._theme = "dark" if self._theme == "light" else "light"
+        self._colors = LIGHT_COLORS if self._theme == "light" else DARK_COLORS
+        db.set_setting("app_theme", self._theme)
+
+        # Ikut update stylesheet aplikasi global juga, supaya dialog lain yang
+        # dibuka dari layar login (mis. RegisterDialog) ikut tema yang baru.
+        from PyQt5.QtWidgets import QApplication
+        from ui.styles import get_theme_stylesheet
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(get_theme_stylesheet(self._theme))
+
+        self._apply_frame_style()
+        # Dialog yang sedang terbuka dari layar login juga ikut berubah tema.
+        from PyQt5.QtWidgets import QDialog
+        for widget in QApplication.topLevelWidgets():
+            if isinstance(widget, QDialog) and hasattr(widget, "on_theme_changed"):
+                try:
+                    widget.on_theme_changed(self._theme)
+                except Exception as e:
+                    print(f"[LoginWindow] Error updating dialog theme: {e}")
+        self.main_layout.removeWidget(self.right_panel)
+        self.right_panel.deleteLater()
+        self.right_panel = self._create_right_panel()
+        self.main_layout.addWidget(self.right_panel)
 
     def _create_left_panel(self) -> QFrame:
         panel = QFrame()
@@ -67,9 +139,9 @@ class LoginWindow(QWidget):
         panel.setStyleSheet("""
             QFrame {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #1A1D4E,
-                    stop:0.4 #2D1B69,
-                    stop:1 #4A1A6E);
+                    stop:0 #0B2036,
+                    stop:0.4 #16385E,
+                    stop:1 #1F4C7A);
                 border-radius: 16px 0 0 16px;
                 border: none;
             }
@@ -161,56 +233,79 @@ class LoginWindow(QWidget):
         return panel
 
     def _create_right_panel(self) -> QFrame:
+        c = self._colors
         panel = QFrame()
-        panel.setStyleSheet("""
-            QFrame {
-                background-color: #0F1117;
+        panel.setStyleSheet(f"""
+            QFrame {{
+                background-color: {c['panel_bg']};
                 border-radius: 0 16px 16px 0;
                 border: none;
-            }
+            }}
         """)
 
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(60, 60, 60, 60)
 
-        # Close button
-        close_layout = QHBoxLayout()
-        close_layout.addStretch()
+        # Top row: toggle tema + close button
+        top_layout = QHBoxLayout()
+        top_layout.addStretch()
+
+        btn_theme = QPushButton("☀️ Terang" if self._theme == "light" else "🌙 Gelap")
+        btn_theme.setCursor(Qt.PointingHandCursor)
+        btn_theme.setFixedHeight(30)
+        btn_theme.setStyleSheet(f"""
+            QPushButton {{
+                background: {c['toggle_bg']};
+                color: {c['text_secondary']};
+                border: 1.5px solid {c['toggle_border']};
+                border-radius: 15px;
+                padding: 0 14px;
+                font-size: 11px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background: {c['toggle_hover']};
+            }}
+        """)
+        btn_theme.clicked.connect(self._toggle_theme)
+        top_layout.addWidget(btn_theme)
+        top_layout.addSpacing(8)
+
         btn_close = QPushButton("✕")
         btn_close.setObjectName("btn_icon")
         btn_close.setFixedSize(32, 32)
-        btn_close.setStyleSheet("""
-            QPushButton {
+        btn_close.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
-                color: #64748B;
+                color: {c['text_muted']};
                 border: none;
                 font-size: 14px;
                 border-radius: 6px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background: #EF4444;
                 color: white;
-            }
+            }}
         """)
         btn_close.clicked.connect(self.close)
-        close_layout.addWidget(btn_close)
-        layout.addLayout(close_layout)
+        top_layout.addWidget(btn_close)
+        layout.addLayout(top_layout)
 
         layout.addStretch()
 
         # Welcome text
         welcome_lbl = QLabel("Selamat Datang 👋")
-        welcome_lbl.setStyleSheet("""
+        welcome_lbl.setStyleSheet(f"""
             font-size: 26px;
             font-weight: 800;
-            color: #F1F5F9;
+            color: {c['text_primary']};
         """)
         layout.addWidget(welcome_lbl)
 
         sub_lbl = QLabel("Masukkan kredensial Anda untuk melanjutkan")
-        sub_lbl.setStyleSheet("""
+        sub_lbl.setStyleSheet(f"""
             font-size: 13px;
-            color: #64748B;
+            color: {c['text_secondary']};
             margin-bottom: 8px;
         """)
         layout.addWidget(sub_lbl)
@@ -218,26 +313,26 @@ class LoginWindow(QWidget):
 
         # Username field
         user_lbl = QLabel("Username")
-        user_lbl.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600;")
+        user_lbl.setStyleSheet(f"color: {c['text_secondary']}; font-size: 12px; font-weight: 600;")
         layout.addWidget(user_lbl)
         layout.addSpacing(6)
 
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("Masukkan username Anda")
         self.username_input.setFixedHeight(46)
-        self.username_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #1A1D27;
-                border: 1.5px solid #2D3250;
+        self.username_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {c['input_bg']};
+                border: 1.5px solid {c['input_border']};
                 border-radius: 10px;
                 padding: 0 14px;
-                color: #F1F5F9;
+                color: {c['text_primary']};
                 font-size: 14px;
-            }
-            QLineEdit:focus {
-                border-color: #6C63FF;
-                background-color: #1E2235;
-            }
+            }}
+            QLineEdit:focus {{
+                border-color: {c['input_focus_border']};
+                background-color: {c['input_focus_bg']};
+            }}
         """)
         self.username_input.returnPressed.connect(self._do_login)
         layout.addWidget(self.username_input)
@@ -245,7 +340,7 @@ class LoginWindow(QWidget):
 
         # Password field
         pass_lbl = QLabel("Password")
-        pass_lbl.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: 600;")
+        pass_lbl.setStyleSheet(f"color: {c['text_secondary']}; font-size: 12px; font-weight: 600;")
         layout.addWidget(pass_lbl)
         layout.addSpacing(6)
 
@@ -255,19 +350,19 @@ class LoginWindow(QWidget):
         self.password_input.setPlaceholderText("Masukkan password Anda")
         self.password_input.setEchoMode(QLineEdit.Password)
         self.password_input.setFixedHeight(46)
-        self.password_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #1A1D27;
-                border: 1.5px solid #2D3250;
+        self.password_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {c['input_bg']};
+                border: 1.5px solid {c['input_border']};
                 border-radius: 10px 0 0 10px;
                 padding: 0 14px;
-                color: #F1F5F9;
+                color: {c['text_primary']};
                 font-size: 14px;
-            }
-            QLineEdit:focus {
-                border-color: #6C63FF;
-                background-color: #1E2235;
-            }
+            }}
+            QLineEdit:focus {{
+                border-color: {c['input_focus_border']};
+                background-color: {c['input_focus_bg']};
+            }}
         """)
         self.password_input.returnPressed.connect(self._do_login)
         pass_row.addWidget(self.password_input)
@@ -278,16 +373,16 @@ class LoginWindow(QWidget):
         self.btn_show_pass.setFixedSize(46, 46)
         self.btn_show_pass.setCheckable(True)
         self.btn_show_pass.setCursor(Qt.PointingHandCursor)
-        self.btn_show_pass.setStyleSheet("""
-            QPushButton {
-                background-color: #1A1D27;
-                border: 1.5px solid #2D3250;
+        self.btn_show_pass.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {c['input_bg']};
+                border: 1.5px solid {c['input_border']};
                 border-left: none;
                 border-radius: 0 10px 10px 0;
-            }
-            QPushButton:hover {
-                background-color: #21263A;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {c['toggle_hover']};
+            }}
         """)
         self.btn_show_pass.toggled.connect(self._toggle_password)
         pass_row.addWidget(self.btn_show_pass)
@@ -316,7 +411,7 @@ class LoginWindow(QWidget):
         self.btn_login.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #6C63FF, stop:1 #8B84FF);
+                    stop:0 #3F72AF, stop:1 #6B93C2);
                 color: #FFFFFF;
                 border: none;
                 border-radius: 10px;
@@ -326,13 +421,13 @@ class LoginWindow(QWidget):
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #8B84FF, stop:1 #A09CFF);
+                    stop:0 #6B93C2, stop:1 #6B93C2);
             }
             QPushButton:pressed {
-                background: #4A44CC;
+                background: #2F5A8C;
             }
             QPushButton:disabled {
-                background: #2D3250;
+                background: #274568;
                 color: #64748B;
             }
         """)
@@ -349,13 +444,13 @@ class LoginWindow(QWidget):
             btn_register.setStyleSheet("""
                 QPushButton {
                     background: transparent;
-                    color: #8B84FF;
+                    color: #3F72AF;
                     border: none;
                     font-size: 12px;
                     font-weight: 600;
                 }
                 QPushButton:hover {
-                    color: #A09CFF;
+                    color: #6B93C2;
                     text-decoration: underline;
                 }
             """)
@@ -367,8 +462,8 @@ class LoginWindow(QWidget):
         # Hint
         hint_lbl = QLabel("Default: admin / admin123  ·  kasir / kasir123")
         hint_lbl.setAlignment(Qt.AlignCenter)
-        hint_lbl.setStyleSheet("""
-            color: #3D4466;
+        hint_lbl.setStyleSheet(f"""
+            color: {c['hint_text']};
             font-size: 11px;
         """)
         layout.addWidget(hint_lbl)
