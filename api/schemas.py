@@ -55,6 +55,7 @@ class BarangOut(BaseModel):
     stok_min: int
     satuan: str
     deskripsi: Optional[str] = None
+    foto: Optional[str] = None
     aktif: bool
     is_low_stock: bool
 
@@ -72,6 +73,7 @@ class BarangCreate(BaseModel):
     stok_min: int = 5
     satuan: str = "pcs"
     deskripsi: Optional[str] = None
+    foto: Optional[str] = None
 
 
 class BarangUpdate(BaseModel):
@@ -84,6 +86,7 @@ class BarangUpdate(BaseModel):
     stok_min: Optional[int] = None
     satuan: Optional[str] = None
     deskripsi: Optional[str] = None
+    foto: Optional[str] = None
     aktif: Optional[bool] = None
 
 

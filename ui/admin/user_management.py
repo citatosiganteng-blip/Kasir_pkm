@@ -259,6 +259,10 @@ class UserManagementPage(QWidget):
         layout.addWidget(self.table)
 
     def on_theme_changed(self, theme: str):
+        for btn in self.findChildren(QPushButton):
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.update()
         self._load_data()
 
     def _load_data(self):

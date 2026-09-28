@@ -4,13 +4,15 @@ Clean, modern, and professional POS interface matching reference design
 """
 
 import os
+from pathlib import Path
+import config
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFrame, QScrollArea, QGridLayout, QSizePolicy,
     QMessageBox, QDialog, QApplication, QButtonGroup, QFileDialog
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QSize
-from PyQt5.QtGui import QFont, QColor, QCursor, QPixmap
+from PyQt5.QtGui import QFont, QColor, QCursor, QPixmap, QPainter, QPainterPath
 
 from database.db import db
 from database.models import Barang, Transaksi, TransaksiDetail
@@ -85,17 +87,61 @@ def get_product_icon_and_bg(nama: str, kategori: str):
     return "📦", "#F9FAFB"
 
 
+def create_rounded_top_pixmap(pixmap: QPixmap, width: int, height: int, radius: int = 14) -> QPixmap:
+    """Memotong gambar (center crop cover) dengan sudut kiri dan kanan atas melengkung"""
+    if pixmap.isNull() or width <= 0 or height <= 0:
+        return QPixmap()
+
+    scaled = pixmap.scaled(
+        width, height,
+        Qt.KeepAspectRatioByExpanding,
+        Qt.SmoothTransformation
+    )
+
+    x = max(0, (scaled.width() - width) // 2)
+    y = max(0, (scaled.height() - height) // 2)
+    cropped = scaled.copy(x, y, width, height)
+
+    dest = QPixmap(width, height)
+    dest.fill(Qt.transparent)
+
+    painter = QPainter(dest)
+    painter.setRenderHint(QPainter.Antialiasing, True)
+    painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+    path = QPainterPath()
+    path.moveTo(0, height)
+    path.lineTo(0, radius)
+    path.quadTo(0, 0, radius, 0)
+    path.lineTo(width - radius, 0)
+    path.quadTo(width, 0, width, radius)
+    path.lineTo(width, height)
+    path.closeSubpath()
+
+    painter.setClipPath(path)
+    painter.drawPixmap(0, 0, cropped)
+    painter.end()
+
+    return dest
+
+
 class ProductCard(QFrame):
-    """Kartu produk modern dengan ilustrasi, nama, harga, dan indikator stok"""
+    """Kartu display produk modern sesuai referensi etalase visual:
+    Foto banner penuh di bagian atas (full-width dengan sudut melengkung),
+    diikuti nama produk rata tengah, harga, dan indikator stok di bawahnya."""
     clicked = pyqtSignal(object)
 
     def __init__(self, barang: Barang, parent=None):
         super().__init__(parent)
         self.barang = barang
         self.setCursor(QCursor(Qt.PointingHandCursor))
-        self.setFixedHeight(185)
+        self.setFixedHeight(215)
+        self.setMinimumWidth(160)
+        self.setMaximumWidth(280)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setObjectName("product_card")
+
+        self._orig_pixmap = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -104,7 +150,7 @@ class ProductCard(QFrame):
             self.setStyleSheet("""
                 QFrame#product_card {
                     background-color: #112D4E;
-                    border: 1.5px solid #274568;
+                    border: 1px solid #274568;
                     border-radius: 14px;
                 }
                 QFrame#product_card:hover {
@@ -116,75 +162,96 @@ class ProductCard(QFrame):
             self.setStyleSheet("""
                 QFrame#product_card {
                     background-color: #FFFFFF;
-                    border: 1.5px solid #E5E7EB;
+                    border: 1px solid #E2E8F0;
                     border-radius: 14px;
                 }
                 QFrame#product_card:hover {
                     border-color: #3F72AF;
-                    background-color: #F9FAFB;
+                    background-color: #FFFFFF;
                 }
             """)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 14, 12, 14)
-        layout.setSpacing(6)
-        layout.setAlignment(Qt.AlignCenter)
+        layout.setContentsMargins(0, 0, 0, 8)
+        layout.setSpacing(4)
+        layout.setAlignment(Qt.AlignTop)
 
-        # Icon / Illustration badge
-        icon_str, bg_color = get_product_icon_and_bg(self.barang.nama, self.barang.kategori or "")
-        icon_container = QFrame()
-        icon_container.setFixedSize(68, 68)
-        if is_dark:
-            icon_container.setStyleSheet("""
-                QFrame {
-                    background-color: #17324F;
-                    border-radius: 34px;
-                    border: 1px solid #274568;
-                }
+        # ── 1. Top Image Banner (Full-Width, Edge-to-Edge) ──
+        self.banner_lbl = QLabel()
+        self.banner_lbl.setFixedHeight(115)
+        self.banner_lbl.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.banner_lbl.setAlignment(Qt.AlignCenter)
+
+        foto_rel = getattr(self.barang, 'foto', None)
+        if foto_rel:
+            foto_path = config.BASE_DIR / foto_rel if not os.path.isabs(foto_rel) else Path(foto_rel)
+            if foto_path.exists():
+                pix = QPixmap(str(foto_path))
+                if not pix.isNull():
+                    self._orig_pixmap = pix
+
+        if self._orig_pixmap:
+            self.banner_lbl.setStyleSheet("""
+                background-color: transparent;
+                border-top-left-radius: 13px;
+                border-top-right-radius: 13px;
             """)
+            rounded = create_rounded_top_pixmap(self._orig_pixmap, 200, 115, radius=13)
+            self.banner_lbl.setPixmap(rounded)
         else:
-            icon_container.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {bg_color};
-                    border-radius: 34px;
-                    border: 1px solid rgba(0, 0, 0, 0.05);
+            icon_str, bg_color = get_product_icon_and_bg(self.barang.nama, self.barang.kategori or "")
+            if is_dark:
+                bg_banner = "#17324F"
+                border_b = "#274568"
+            else:
+                bg_banner = bg_color
+                border_b = "rgba(0, 0, 0, 0.05)"
+            self.banner_lbl.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {bg_banner};
+                    border-top-left-radius: 13px;
+                    border-top-right-radius: 13px;
+                    border-bottom: 1px solid {border_b};
+                    font-size: 42px;
                 }}
             """)
-        ic_layout = QVBoxLayout(icon_container)
-        ic_layout.setContentsMargins(0, 0, 0, 0)
-        ic_lbl = QLabel(icon_str)
-        ic_lbl.setAlignment(Qt.AlignCenter)
-        ic_lbl.setStyleSheet("font-size: 34px; background: transparent;")
-        ic_layout.addWidget(ic_lbl)
+            self.banner_lbl.setText(icon_str)
 
-        layout.addWidget(icon_container, 0, Qt.AlignCenter)
-        layout.addSpacing(4)
+        layout.addWidget(self.banner_lbl)
+
+        # ── 2. Content Info (Nama, Harga, Stok) ──
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background: transparent;")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(10, 4, 10, 0)
+        content_layout.setSpacing(3)
+        content_layout.setAlignment(Qt.AlignCenter)
 
         # Product Name
         name_lbl = QLabel(self.barang.nama)
         name_lbl.setAlignment(Qt.AlignCenter)
         name_lbl.setWordWrap(True)
-        name_lbl.setMaximumHeight(36)
-        name_color = "#F9FAFB" if is_dark else "#112D4E"
+        name_lbl.setMaximumHeight(34)
+        name_color = "#F9FAFB" if is_dark else "#1E293B"
         name_lbl.setStyleSheet(f"""
             color: {name_color};
             font-size: 13px;
             font-weight: 700;
             background: transparent;
         """)
-        layout.addWidget(name_lbl)
+        content_layout.addWidget(name_lbl)
 
         # Price
         price_lbl = QLabel(format_rupiah(self.barang.harga_jual))
         price_lbl.setAlignment(Qt.AlignCenter)
-        price_color = "#6B93C2" if is_dark else "#3F72AF"
+        price_color = "#93C5FD" if is_dark else "#3F72AF"
         price_lbl.setStyleSheet(f"""
             color: {price_color};
             font-size: 12px;
             font-weight: 700;
             background: transparent;
         """)
-        layout.addWidget(price_lbl)
+        content_layout.addWidget(price_lbl)
 
         # Stock indicator pill
         if self.barang.stok <= 0:
@@ -210,7 +277,17 @@ class ProductCard(QFrame):
             padding: 2px 8px;
             border-radius: 8px;
         """)
-        layout.addWidget(stok_lbl, 0, Qt.AlignCenter)
+        content_layout.addWidget(stok_lbl, 0, Qt.AlignCenter)
+
+        layout.addWidget(content_widget)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._orig_pixmap and not self._orig_pixmap.isNull():
+            w = self.width()
+            if w > 0:
+                rounded = create_rounded_top_pixmap(self._orig_pixmap, w, 115, radius=13)
+                self.banner_lbl.setPixmap(rounded)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -602,7 +679,7 @@ class KasirPage(QWidget):
 
         # Quick Cash Nominal Buttons (for Tunai)
         self.quick_cash_frame = QFrame()
-        self.quick_cash_frame.setStyleSheet("background: transparent;")
+        self.quick_cash_frame.setObjectName("quick_cash_frame")
         qc_layout = QHBoxLayout(self.quick_cash_frame)
         qc_layout.setContentsMargins(0, 0, 0, 0)
         qc_layout.setSpacing(6)
@@ -618,6 +695,7 @@ class KasirPage(QWidget):
             (self.btn_100k, 100000),
             (self.btn_200k, 200000)
         ]:
+            b.setObjectName("nominal_btn")
             b.setFixedHeight(34)
             b.setCursor(QCursor(Qt.PointingHandCursor))
             b.clicked.connect(lambda _, v=val: self._on_quick_cash_clicked(v))
@@ -671,29 +749,9 @@ class KasirPage(QWidget):
 
         # Big Action Button: BAYAR SEKARANG
         self.btn_checkout = QPushButton("BAYAR SEKARANG")
+        self.btn_checkout.setObjectName("btn_primary")
         self.btn_checkout.setFixedHeight(50)
         self.btn_checkout.setCursor(QCursor(Qt.PointingHandCursor))
-        self.btn_checkout.setStyleSheet("""
-            QPushButton {
-                background-color: #3F72AF;
-                color: #FFFFFF;
-                border: none;
-                border-radius: 10px;
-                font-size: 15px;
-                font-weight: 800;
-                letter-spacing: 0.5px;
-            }
-            QPushButton:hover {
-                background-color: #2F5A8C;
-            }
-            QPushButton:pressed {
-                background-color: #1E40AF;
-            }
-            QPushButton:disabled {
-                background-color: #E5E7EB;
-                color: #94A3B8;
-            }
-        """)
         self.btn_checkout.clicked.connect(self._do_checkout)
         right_layout.addWidget(self.btn_checkout)
 
@@ -1136,6 +1194,9 @@ class KasirPage(QWidget):
             return
 
         columns = 3  # Match reference layout 3-kolom
+        for c in range(columns):
+            self.grid_layout.setColumnStretch(c, 1)
+
         for idx, b in enumerate(filtered):
             card = ProductCard(b)
             card.clicked.connect(self._add_to_cart)

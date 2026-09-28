@@ -564,19 +564,22 @@ class RiwayatTransaksiPage(QWidget):
             btn_print = QPushButton("🖨")
             btn_print.setFixedSize(30, 30)
             btn_print.setToolTip("Cetak Ulang")
-            is_dark = (db.get_setting("app_theme", "dark") == "dark")
-            if is_dark:
-                btn_print.setStyleSheet("QPushButton { background-color: #112D4E; border: 1px solid #274568; border-radius: 6px; color: #F9FAFB; } QPushButton:hover { background-color: #17324F; }")
-            else:
-                btn_print.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 6px; color: #112D4E; } QPushButton:hover { background-color: #F9FAFB; }")
-            btn_print.setCursor(QCursor(Qt.PointingHandCursor))
-            btn_print.clicked.connect(lambda _, inv=t["no_invoice"]: self._reprint_invoice(inv))
-            action_l.addWidget(btn_print)
 
             btn_detail = QPushButton("👁")
             btn_detail.setFixedSize(30, 30)
             btn_detail.setToolTip("Lihat Detail")
-            btn_detail.setStyleSheet("QPushButton { background-color: #1E3A5F; border: none; border-radius: 6px; } QPushButton:hover { background-color: #1E40AF; }")
+
+            is_dark = (db.get_setting("app_theme", "dark") == "dark")
+            if is_dark:
+                btn_print.setStyleSheet("QPushButton { background-color: #112D4E; border: 1px solid #274568; border-radius: 6px; color: #F9FAFB; } QPushButton:hover { background-color: #17324F; }")
+                btn_detail.setStyleSheet("QPushButton { background-color: #1E3A5F; border: none; border-radius: 6px; color: #93C5FD; } QPushButton:hover { background-color: #1E40AF; }")
+            else:
+                btn_print.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1px solid #CBD5E1; border-radius: 6px; color: #112D4E; } QPushButton:hover { background-color: #F1F5F9; }")
+                btn_detail.setStyleSheet("QPushButton { background-color: #DBE2EF; border: 1px solid #BFDBFE; border-radius: 6px; color: #1E40AF; } QPushButton:hover { background-color: #BFDBFE; }")
+            btn_print.setCursor(QCursor(Qt.PointingHandCursor))
+            btn_print.clicked.connect(lambda _, inv=t["no_invoice"]: self._reprint_invoice(inv))
+            action_l.addWidget(btn_print)
+
             btn_detail.setCursor(QCursor(Qt.PointingHandCursor))
             btn_detail.clicked.connect(lambda _, tid=t["id"]: self._show_detail(tid))
             action_l.addWidget(btn_detail)
@@ -743,4 +746,9 @@ class RiwayatTransaksiPage(QWidget):
                     padding: 10px;
                 }}
             """)
+        for b in [self.btn_reprint, self.btn_faktur_pdf, self.btn_retur, getattr(self, "btn_void", None)]:
+            if b:
+                b.style().unpolish(b)
+                b.style().polish(b)
+                b.update()
         self._load_data()

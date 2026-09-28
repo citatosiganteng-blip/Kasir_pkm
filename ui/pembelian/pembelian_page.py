@@ -189,7 +189,9 @@ class PembelianPage(QWidget):
         filter_row.addWidget(self.filter_status_combo, 1)
 
         btn_refresh = QPushButton("🔄 Refresh")
+        btn_refresh.setObjectName("btn_secondary")
         btn_refresh.setFixedHeight(36)
+        btn_refresh.setCursor(QCursor(Qt.PointingHandCursor))
         btn_refresh.clicked.connect(self._load_pembelian_data)
         filter_row.addWidget(btn_refresh)
         layout.addLayout(filter_row)
@@ -219,6 +221,7 @@ class PembelianPage(QWidget):
         action_row.addWidget(self.btn_cetak_po)
 
         self.btn_lunasi_tempo = QPushButton("💳 Lunasi Faktur Tempo")
+        self.btn_lunasi_tempo.setObjectName("btn_success")
         self.btn_lunasi_tempo.setFixedHeight(38)
         self.btn_lunasi_tempo.setCursor(QCursor(Qt.PointingHandCursor))
         self.btn_lunasi_tempo.clicked.connect(self._lunasi_selected_tempo)
@@ -254,7 +257,9 @@ class PembelianPage(QWidget):
         self.in_supplier_combo.setFixedHeight(36)
 
         btn_tambah_sup = QPushButton("+ Supplier")
+        btn_tambah_sup.setObjectName("btn_secondary")
         btn_tambah_sup.setFixedHeight(36)
+        btn_tambah_sup.setCursor(QCursor(Qt.PointingHandCursor))
         btn_tambah_sup.clicked.connect(self._tambah_supplier_quick)
 
         self.in_no_po = QLineEdit()
@@ -432,7 +437,9 @@ class PembelianPage(QWidget):
         layout.addWidget(self.sup_table)
 
         btn_edit_sup = QPushButton("✏️ Edit Supplier Terpilih")
+        btn_edit_sup.setObjectName("btn_secondary")
         btn_edit_sup.setFixedHeight(36)
+        btn_edit_sup.setCursor(QCursor(Qt.PointingHandCursor))
         btn_edit_sup.clicked.connect(self._edit_selected_supplier)
         layout.addWidget(btn_edit_sup, alignment=Qt.AlignRight)
 
@@ -448,6 +455,10 @@ class PembelianPage(QWidget):
         self._load_barang_options()
         with db.get_session() as session:
             self.in_no_po.setText(generate_po_number(session))
+
+    def on_theme_changed(self, theme: str):
+        """Callback saat tema berubah"""
+        self.refresh()
 
     def _load_supplier_data(self):
         with db.get_session() as session:

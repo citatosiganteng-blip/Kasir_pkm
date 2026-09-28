@@ -61,6 +61,7 @@ class SettingsPage(QWidget):
 
     def _save_btn(self, on_click):
         btn = QPushButton("💾 Simpan Perubahan")
+        btn.setObjectName("btn_primary")
         btn.setFixedHeight(44)
         btn.setCursor(QCursor(Qt.PointingHandCursor))
         btn.clicked.connect(on_click)
@@ -68,7 +69,6 @@ class SettingsPage(QWidget):
 
     def _create_store_tab(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
@@ -108,7 +108,6 @@ class SettingsPage(QWidget):
 
     def _create_tax_tab(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
@@ -171,7 +170,6 @@ class SettingsPage(QWidget):
 
     def _create_printer_tab(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
@@ -211,7 +209,6 @@ class SettingsPage(QWidget):
 
     def _create_backup_tab(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
@@ -252,7 +249,6 @@ class SettingsPage(QWidget):
 
     def _create_drawer_tab(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
@@ -262,6 +258,7 @@ class SettingsPage(QWidget):
         layout.addWidget(info)
 
         btn_open = QPushButton("🗄️ Buka Cash Drawer Sekarang")
+        btn_open.setObjectName("btn_secondary")
         btn_open.setFixedHeight(50)
         btn_open.setCursor(QCursor(Qt.PointingHandCursor))
         btn_open.clicked.connect(self._manual_open_drawer)
@@ -461,3 +458,7 @@ class SettingsPage(QWidget):
         self._load_settings()
         self._load_backup_list()
         self._load_drawer_log()
+
+    def on_theme_changed(self, theme: str):
+        """Callback saat tema aplikasi berubah"""
+        self.refresh()

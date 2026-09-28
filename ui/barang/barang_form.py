@@ -3,13 +3,18 @@ KasirKu Barang Form Dialog
 Form tambah/edit barang
 """
 
+import os
+import shutil
+import uuid
+from pathlib import Path
+
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QComboBox, QSpinBox, QDoubleSpinBox,
-    QFrame, QFormLayout, QMessageBox, QTextEdit
+    QFrame, QFormLayout, QMessageBox, QTextEdit, QFileDialog
 )
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QIntValidator, QDoubleValidator, QCursor
+from PyQt5.QtGui import QIntValidator, QDoubleValidator, QCursor, QPixmap
 
 from database.db import db
 from database.models import Barang
@@ -34,8 +39,11 @@ class BarangFormDialog(QDialog):
         super().__init__(parent)
         self.barang = barang  # None = tambah baru, otherwise = edit
         self.setWindowTitle("Tambah Barang" if not barang else "Edit Barang")
-        self.setFixedSize(520, 640)
+        self.setFixedSize(540, 720)
         self.setModal(True)
+        self._selected_photo_path = None
+        self._photo_removed = False
+        self._current_photo_rel = None
 
         # Dialog ini adalah top-level window. Untuk memastikan tampilannya
         # selalu mengikuti mode aplikasi (terutama setelah user berpindah
@@ -123,6 +131,17 @@ class BarangFormDialog(QDialog):
                 QPushButton#btn_secondary:hover {
                     background-color: #17324F;
                 }
+                QPushButton#btn_danger_subtle {
+                    background-color: #3F1D1D;
+                    color: #FCA5A5;
+                    border: 1px solid #7F1D1D;
+                    border-radius: 8px;
+                    padding: 0 12px;
+                }
+                QPushButton#btn_danger_subtle:hover {
+                    background-color: #551D1D;
+                    color: #FECACA;
+                }
                 QPushButton {
                     background-color: #2572AF;
                     color: #FFFFFF;
@@ -207,6 +226,17 @@ class BarangFormDialog(QDialog):
                     background-color: #F9FAFB;
                     color: #112D4E;
                 }
+                QPushButton#btn_danger_subtle {
+                    background-color: #FEE2E2;
+                    color: #DC2626;
+                    border: 1px solid #FECACA;
+                    border-radius: 8px;
+                    padding: 0 12px;
+                }
+                QPushButton#btn_danger_subtle:hover {
+                    background-color: #FCA5A5;
+                    color: #991B1B;
+                }
                 QPushButton {
                     background-color: #3F72AF;
                     color: #FFFFFF;
@@ -217,6 +247,8 @@ class BarangFormDialog(QDialog):
                     background-color: #2F5A8C;
                 }
             """)
+        if hasattr(self, "photo_preview") and not self._selected_photo_path and not getattr(self, "_current_photo_rel", None):
+            self._reset_photo_preview()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -252,6 +284,49 @@ class BarangFormDialog(QDialog):
             inp.setPlaceholderText(placeholder)
             inp.setFixedHeight(38)
             return inp
+
+        # Foto Produk
+        photo_row = QHBoxLayout()
+        photo_row.setSpacing(14)
+
+        self.photo_preview = QLabel("📷")
+        self.photo_preview.setFixedSize(68, 68)
+        self.photo_preview.setAlignment(Qt.AlignCenter)
+        self.photo_preview.setCursor(QCursor(Qt.PointingHandCursor))
+        self.photo_preview.setToolTip("Klik untuk memilih foto produk")
+        self.photo_preview.mousePressEvent = lambda _: self._choose_photo()
+        photo_row.addWidget(self.photo_preview)
+
+        photo_btn_layout = QVBoxLayout()
+        photo_btn_layout.setSpacing(6)
+
+        btn_action_row = QHBoxLayout()
+        btn_action_row.setSpacing(8)
+
+        self.btn_choose_photo = QPushButton("📁 Pilih Foto")
+        self.btn_choose_photo.setObjectName("btn_secondary")
+        self.btn_choose_photo.setFixedHeight(32)
+        self.btn_choose_photo.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_choose_photo.clicked.connect(self._choose_photo)
+        btn_action_row.addWidget(self.btn_choose_photo)
+
+        self.btn_remove_photo = QPushButton("🗑 Hapus")
+        self.btn_remove_photo.setObjectName("btn_danger_subtle")
+        self.btn_remove_photo.setFixedHeight(32)
+        self.btn_remove_photo.setCursor(QCursor(Qt.PointingHandCursor))
+        self.btn_remove_photo.clicked.connect(self._remove_photo)
+        self.btn_remove_photo.hide()
+        btn_action_row.addWidget(self.btn_remove_photo)
+        btn_action_row.addStretch()
+
+        photo_btn_layout.addLayout(btn_action_row)
+
+        photo_hint = QLabel("Format: JPG, PNG, WEBP (Opsional)")
+        photo_hint.setStyleSheet("font-size: 11px; color: #64748B; background: transparent;")
+        photo_btn_layout.addWidget(photo_hint)
+
+        photo_row.addLayout(photo_btn_layout)
+        form_layout.addRow(make_label("Foto Produk"), photo_row)
 
         # Kode Barang
         self.kode_input = make_input("Auto-generate jika kosong")
@@ -354,12 +429,81 @@ class BarangFormDialog(QDialog):
 
         layout.addLayout(btn_row)
 
+    def _choose_photo(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Pilih Foto Produk",
+            "",
+            "Gambar (*.png *.jpg *.jpeg *.webp *.bmp)"
+        )
+        if file_path:
+            self._selected_photo_path = file_path
+            self._photo_removed = False
+            self._display_photo(file_path)
+            self.btn_remove_photo.show()
+
+    def _remove_photo(self):
+        self._selected_photo_path = None
+        self._photo_removed = True
+        self._current_photo_rel = None
+        self._reset_photo_preview()
+        self.btn_remove_photo.hide()
+
+    def _display_photo(self, path_str: str):
+        pixmap = QPixmap(path_str)
+        if not pixmap.isNull():
+            scaled = pixmap.scaled(68, 68, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            self.photo_preview.setPixmap(scaled)
+            self.photo_preview.setText("")
+            self.photo_preview.setStyleSheet("""
+                QLabel {
+                    border: 1.5px solid #3F72AF;
+                    border-radius: 10px;
+                    background-color: transparent;
+                }
+            """)
+        else:
+            self._reset_photo_preview()
+
+    def _reset_photo_preview(self):
+        self.photo_preview.setPixmap(QPixmap())
+        self.photo_preview.setText("📷")
+        theme = db.get_setting("app_theme", "light")
+        if theme == "dark":
+            self.photo_preview.setStyleSheet("""
+                QLabel {
+                    background-color: #17324F;
+                    border: 1.5px dashed #274568;
+                    border-radius: 10px;
+                    color: #8CA0BC;
+                    font-size: 24px;
+                }
+            """)
+        else:
+            self.photo_preview.setStyleSheet("""
+                QLabel {
+                    background-color: #F8FAFC;
+                    border: 1.5px dashed #CBD5E1;
+                    border-radius: 10px;
+                    color: #94A3B8;
+                    font-size: 24px;
+                }
+            """)
+
     def _populate_fields(self):
         """Isi form dengan data barang yang diedit"""
         b = self.barang
         self.kode_input.setText(b.kode or "")
         self.barcode_input.setText(b.barcode or "")
         self.nama_input.setText(b.nama or "")
+
+        # Tampilkan foto produk jika ada
+        if getattr(b, "foto", None):
+            self._current_photo_rel = b.foto
+            full_path = (config.BASE_DIR / b.foto) if not os.path.isabs(b.foto) else Path(b.foto)
+            if full_path.exists():
+                self._display_photo(str(full_path))
+                self.btn_remove_photo.show()
 
         idx = self.kategori_combo.findText(b.kategori or "")
         if idx >= 0:
@@ -421,6 +565,20 @@ class BarangFormDialog(QDialog):
                     self._show_error(f"Barcode '{barcode}' sudah digunakan!")
                     return
 
+            # Proses foto produk
+            new_foto = getattr(self.barang, 'foto', None) if self.barang else None
+            if self._photo_removed:
+                new_foto = None
+            elif self._selected_photo_path:
+                ext = Path(self._selected_photo_path).suffix.lower() or ".jpg"
+                clean_name = f"brg_{kode.lower()}_{uuid.uuid4().hex[:6]}{ext}"
+                target_path = config.UPLOAD_PRODUK_DIR / clean_name
+                try:
+                    shutil.copy2(self._selected_photo_path, target_path)
+                    new_foto = f"uploads/produk/{clean_name}"
+                except Exception as e:
+                    print(f"[BarangForm] Gagal menyimpan file foto: {e}")
+
             if self.barang:
                 # Edit
                 b = session.query(Barang).filter_by(id=self.barang.id).first()
@@ -434,13 +592,15 @@ class BarangFormDialog(QDialog):
                     b.harga_jual = harga_jual
                     b.stok = stok
                     b.stok_min = stok_min
+                    b.foto = new_foto
             else:
                 # Tambah baru
                 b = Barang(
                     kode=kode, barcode=barcode, nama=nama,
                     kategori=kategori, satuan=satuan,
                     harga_beli=harga_beli, harga_jual=harga_jual,
-                    stok=stok, stok_min=stok_min
+                    stok=stok, stok_min=stok_min,
+                    foto=new_foto
                 )
                 session.add(b)
 

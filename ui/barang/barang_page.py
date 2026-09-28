@@ -10,7 +10,9 @@ from PyQt5.QtWidgets import (
     QScrollArea
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QColor, QFont, QCursor
+from PyQt5.QtGui import QColor, QFont, QCursor, QPixmap
+from pathlib import Path
+import config
 
 from database.db import db
 from database.models import Barang
@@ -281,6 +283,7 @@ class BarangPage(QWidget):
                     "stok": b.stok,
                     "stok_min": b.stok_min,
                     "satuan": b.satuan,
+                    "foto": getattr(b, "foto", None) or "",
                     "is_low_stock": b.stok <= b.stok_min and b.stok > 0,
                     "is_empty": b.stok == 0,
                 }
@@ -404,6 +407,10 @@ class BarangPage(QWidget):
         self.card_total.on_theme_changed(theme)
         self.card_menipis.on_theme_changed(theme)
         self.card_habis.on_theme_changed(theme)
+        for btn in self.findChildren(QPushButton):
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+            btn.update()
         self._render_page()
 
     def _get_product_emoji(self, nama: str, kategori: str) -> str:
@@ -444,16 +451,38 @@ class BarangPage(QWidget):
             product_layout.setContentsMargins(8, 4, 8, 4)
             product_layout.setSpacing(12)
 
-            emoji = self._get_product_emoji(b["nama"], b["kategori"])
-            thumb_lbl = QLabel(emoji)
-            thumb_lbl.setFixedSize(38, 38)
-            thumb_lbl.setAlignment(Qt.AlignCenter)
-            thumb_lbl.setStyleSheet(f"""
-                background-color: {icon_bg};
-                border-radius: 8px;
-                font-size: 18px;
-            """)
-            product_layout.addWidget(thumb_lbl)
+            foto_rel = b.get("foto")
+            has_photo = False
+            if foto_rel:
+                foto_path = config.BASE_DIR / foto_rel if not os.path.isabs(foto_rel) else Path(foto_rel)
+                if foto_path.exists():
+                    pix = QPixmap(str(foto_path))
+                    if not pix.isNull():
+                        thumb_lbl = QLabel()
+                        thumb_lbl.setFixedSize(38, 38)
+                        thumb_lbl.setAlignment(Qt.AlignCenter)
+                        scaled_pix = pix.scaled(38, 38, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                        thumb_lbl.setPixmap(scaled_pix)
+                        border_c = "#274568" if is_dark else "#E5E7EB"
+                        thumb_lbl.setStyleSheet(f"""
+                            border-radius: 8px;
+                            border: 1px solid {border_c};
+                            background: transparent;
+                        """)
+                        product_layout.addWidget(thumb_lbl)
+                        has_photo = True
+
+            if not has_photo:
+                emoji = self._get_product_emoji(b["nama"], b["kategori"])
+                thumb_lbl = QLabel(emoji)
+                thumb_lbl.setFixedSize(38, 38)
+                thumb_lbl.setAlignment(Qt.AlignCenter)
+                thumb_lbl.setStyleSheet(f"""
+                    background-color: {icon_bg};
+                    border-radius: 8px;
+                    font-size: 18px;
+                """)
+                product_layout.addWidget(thumb_lbl)
 
             name_layout = QVBoxLayout()
             name_layout.setSpacing(1)
@@ -531,10 +560,16 @@ class BarangPage(QWidget):
                 btn_restock = QPushButton("＋")
                 btn_restock.setFixedSize(28, 28)
                 btn_restock.setToolTip("Restock / Tambah Stok")
-                btn_restock.setStyleSheet("""
-                    QPushButton { background-color: #14532D; color: #86EFAC; border-radius: 6px; font-weight: bold; border: none; }
-                    QPushButton:hover { background-color: #166534; }
-                """)
+                if is_dark:
+                    btn_restock.setStyleSheet("""
+                        QPushButton { background-color: #14532D; color: #86EFAC; border-radius: 6px; font-weight: bold; border: none; }
+                        QPushButton:hover { background-color: #166534; }
+                    """)
+                else:
+                    btn_restock.setStyleSheet("""
+                        QPushButton { background-color: #DCFCE7; color: #15803D; border: 1px solid #BBF7D0; border-radius: 6px; font-weight: bold; }
+                        QPushButton:hover { background-color: #BBF7D0; }
+                    """)
                 btn_restock.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_restock.clicked.connect(lambda _, bid=b["id"]: self._open_edit_form(bid))
                 action_layout.addWidget(btn_restock)
@@ -542,10 +577,16 @@ class BarangPage(QWidget):
                 btn_edit = QPushButton("✏")
                 btn_edit.setFixedSize(28, 28)
                 btn_edit.setToolTip("Edit")
-                btn_edit.setStyleSheet("""
-                    QPushButton { background-color: #1E3A5F; color: #93C5FD; border-radius: 6px; font-weight: bold; border: none; }
-                    QPushButton:hover { background-color: #1E40AF; }
-                """)
+                if is_dark:
+                    btn_edit.setStyleSheet("""
+                        QPushButton { background-color: #1E3A5F; color: #93C5FD; border-radius: 6px; font-weight: bold; border: none; }
+                        QPushButton:hover { background-color: #1E40AF; }
+                    """)
+                else:
+                    btn_edit.setStyleSheet("""
+                        QPushButton { background-color: #DBEAFE; color: #1D4ED8; border: 1px solid #BFDBFE; border-radius: 6px; font-weight: bold; }
+                        QPushButton:hover { background-color: #BFDBFE; }
+                    """)
                 btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_edit.clicked.connect(lambda _, bid=b["id"]: self._open_edit_form(bid))
                 action_layout.addWidget(btn_edit)
@@ -553,10 +594,16 @@ class BarangPage(QWidget):
                 btn_del = QPushButton("🗑")
                 btn_del.setFixedSize(28, 28)
                 btn_del.setToolTip("Hapus")
-                btn_del.setStyleSheet("""
-                    QPushButton { background-color: #7F1D1D; color: #FCA5A5; border-radius: 6px; font-weight: bold; border: none; }
-                    QPushButton:hover { background-color: #991B1B; }
-                """)
+                if is_dark:
+                    btn_del.setStyleSheet("""
+                        QPushButton { background-color: #7F1D1D; color: #FCA5A5; border-radius: 6px; font-weight: bold; border: none; }
+                        QPushButton:hover { background-color: #991B1B; }
+                    """)
+                else:
+                    btn_del.setStyleSheet("""
+                        QPushButton { background-color: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 6px; font-weight: bold; }
+                        QPushButton:hover { background-color: #FECACA; }
+                    """)
                 btn_del.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_del.clicked.connect(lambda _, bid=b["id"]: self._delete_barang(bid))
                 action_layout.addWidget(btn_del)

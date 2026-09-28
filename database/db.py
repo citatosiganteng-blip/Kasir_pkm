@@ -105,6 +105,13 @@ class DatabaseManager:
                         conn.execute(text(f"ALTER TABLE transaksi ADD COLUMN {col_name} {col_type}"))
                         conn.commit()
 
+                # --- barang: migrasi kolom foto ---
+                res_brg = conn.execute(text("PRAGMA table_info(barang)"))
+                brg_cols = [row[1] for row in res_brg.fetchall()]
+                if "foto" not in brg_cols:
+                    conn.execute(text("ALTER TABLE barang ADD COLUMN foto VARCHAR(255)"))
+                    conn.commit()
+
                 # --- login_attempts: buat tabel jika belum ada ---
                 conn.execute(text(
                     """
@@ -217,39 +224,41 @@ class DatabaseManager:
                 if not existing:
                     session.add(Pengaturan(kunci=kunci, nilai=nilai))
 
-            # Data barang contoh
-            sample_data = [
-                ("Nasi Goreng", "Makanan", 18000, 25000, 45, "porsi"),
-                ("Ayam Bakar", "Makanan", 25000, 35000, 40, "porsi"),
-                ("Es Teh Manis", "Minuman", 4000, 10000, 100, "gelas"),
-                ("Kopi Hitam", "Minuman", 6000, 15000, 80, "cangkir"),
-                ("Keripik Singkong", "Jajanan", 5000, 10000, 60, "bks"),
-                ("Aqua Botol 600ml", "Minuman", 2500, 4000, 50, "pcs"),
-                ("Indomie Goreng", "Makanan", 2800, 4500, 100, "pcs"),
-                ("Teh Botol 350ml", "Minuman", 3000, 5000, 15, "pcs"),
-                ("Sabun Lifebuoy", "Kebersihan", 3500, 6000, 30, "pcs"),
-                ("Pasta Gigi Pepsodent", "Kebersihan", 8000, 13000, 20, "pcs"),
-                ("Beras 1kg", "Sembako", 12000, 15000, 10, "kg"),
-            ]
+            # Data barang contoh (hanya jika belum pernah dibersihkan/dihapus oleh pengguna)
+            sample_cleared = session.query(Pengaturan).filter_by(kunci="sample_data_cleared").first()
+            if not sample_cleared or sample_cleared.nilai != "1":
+                sample_data = [
+                    ("Nasi Goreng", "Makanan", 18000, 25000, 45, "porsi"),
+                    ("Ayam Bakar", "Makanan", 25000, 35000, 40, "porsi"),
+                    ("Es Teh Manis", "Minuman", 4000, 10000, 100, "gelas"),
+                    ("Kopi Hitam", "Minuman", 6000, 15000, 80, "cangkir"),
+                    ("Keripik Singkong", "Jajanan", 5000, 10000, 60, "bks"),
+                    ("Aqua Botol 600ml", "Minuman", 2500, 4000, 50, "pcs"),
+                    ("Indomie Goreng", "Makanan", 2800, 4500, 100, "pcs"),
+                    ("Teh Botol 350ml", "Minuman", 3000, 5000, 15, "pcs"),
+                    ("Sabun Lifebuoy", "Kebersihan", 3500, 6000, 30, "pcs"),
+                    ("Pasta Gigi Pepsodent", "Kebersihan", 8000, 13000, 20, "pcs"),
+                    ("Beras 1kg", "Sembako", 12000, 15000, 10, "kg"),
+                ]
 
-            existing_kodes = {b.kode for b in session.query(Barang.kode).all()}
-            counter = 1
-            for nama, kat, hb, hj, stok, sat in sample_data:
-                existing = session.query(Barang).filter_by(nama=nama).first()
-                if not existing:
-                    while f"BRG{counter:03d}" in existing_kodes:
-                        counter += 1
-                    kode_cand = f"BRG{counter:03d}"
-                    existing_kodes.add(kode_cand)
-                    session.add(Barang(
-                        kode=kode_cand,
-                        nama=nama,
-                        kategori=kat,
-                        harga_beli=hb,
-                        harga_jual=hj,
-                        stok=stok,
-                        satuan=sat
-                    ))
+                existing_kodes = {b.kode for b in session.query(Barang.kode).all()}
+                counter = 1
+                for nama, kat, hb, hj, stok, sat in sample_data:
+                    existing = session.query(Barang).filter_by(nama=nama).first()
+                    if not existing:
+                        while f"BRG{counter:03d}" in existing_kodes:
+                            counter += 1
+                        kode_cand = f"BRG{counter:03d}"
+                        existing_kodes.add(kode_cand)
+                        session.add(Barang(
+                            kode=kode_cand,
+                            nama=nama,
+                            kategori=kat,
+                            harga_beli=hb,
+                            harga_jual=hj,
+                            stok=stok,
+                            satuan=sat
+                        ))
 
             # commit dilakukan otomatis oleh context manager
 

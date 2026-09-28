@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
         # RIGHT AREA: top bar + stacked content
         # =====================================================================
         right_area = QWidget()
-        right_area.setStyleSheet("background: transparent;")
+        right_area.setObjectName("main_right_area")
         right_layout = QVBoxLayout(right_area)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
@@ -311,10 +311,11 @@ class MainWindow(QMainWindow):
             "🌙 Mode Gelap" if self._current_theme == "light" else "☀️ Mode Terang"
         )
 
-        # Re-polish all nav buttons
-        for _, btn in self._nav_buttons:
+        # Re-polish all buttons across window and loaded pages
+        for btn in self.findChildren(QPushButton):
             btn.style().unpolish(btn)
             btn.style().polish(btn)
+            btn.update()
 
         # Beritahu semua halaman yang memiliki hook on_theme_changed
         # dan semua dialog yang sedang terbuka agar tidak ada modal yang

@@ -4,8 +4,12 @@ Endpoint: CRUD produk, search, stok
 """
 
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from pathlib import Path
+import uuid
+import shutil
+from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile, File
 
+import config
 from database.db import db
 from database.models import Barang
 from utils.helpers import generate_item_code
@@ -28,6 +32,7 @@ def _barang_to_schema(b: Barang) -> BarangOut:
         stok_min=b.stok_min,
         satuan=b.satuan,
         deskripsi=b.deskripsi,
+        foto=getattr(b, "foto", None),
         aktif=b.aktif,
         is_low_stock=b.is_low_stock,
     )
@@ -118,6 +123,7 @@ def create_barang(body: BarangCreate, _: dict = Depends(require_admin)):
             stok_min=body.stok_min,
             satuan=body.satuan,
             deskripsi=body.deskripsi,
+            foto=body.foto,
         )
         session.add(b)
         session.flush()
@@ -154,11 +160,47 @@ def update_barang(
             b.satuan = body.satuan
         if body.deskripsi is not None:
             b.deskripsi = body.deskripsi
+        if body.foto is not None:
+            b.foto = body.foto
         if body.aktif is not None:
             b.aktif = body.aktif
 
         session.flush()
         return _barang_to_schema(b)
+
+
+@router.post("/{barang_id}/foto", response_model=BarangOut)
+def upload_foto_barang(
+    barang_id: int,
+    file: UploadFile = File(...),
+    _: dict = Depends(require_admin),
+):
+    """Upload dan update foto produk untuk satu barang."""
+    with db.get_session() as session:
+        b = session.query(Barang).filter_by(id=barang_id).first()
+        if not b:
+            raise HTTPException(status_code=404, detail="Barang tidak ditemukan")
+
+        ext = Path(file.filename or "").suffix.lower()
+        if ext not in [".jpg", ".jpeg", ".png", ".webp", ".bmp"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Format file tidak didukung (harus JPG, PNG, WEBP, atau BMP)"
+            )
+
+        clean_name = f"brg_{b.kode.lower()}_{uuid.uuid4().hex[:6]}{ext}"
+        target_path = config.UPLOAD_PRODUK_DIR / clean_name
+        try:
+            with open(target_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            b.foto = f"uploads/produk/{clean_name}"
+            session.flush()
+            return _barang_to_schema(b)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Gagal mengunggah foto: {e}"
+            )
 
 
 @router.delete("/{barang_id}", response_model=MessageResponse)

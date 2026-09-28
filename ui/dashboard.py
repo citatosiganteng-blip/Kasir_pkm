@@ -149,6 +149,7 @@ class DashboardPage(QWidget):
     def on_theme_changed(self, theme: str):
         """Hook yang dipanggil saat user mengubah tema"""
         self._current_theme = theme
+        is_dark = (theme == "dark")
         for card in [
             self.card_pemasukan, self.card_transaksi,
             self.card_pengeluaran, self.card_stok_rendah,
@@ -159,7 +160,23 @@ class DashboardPage(QWidget):
                 card.apply_theme(theme)
         if hasattr(self, "_divider"):
             self._divider.setStyleSheet(
-                f"background: {'#274568' if theme == 'dark' else '#E5E7EB'}; max-height: 1px; border: none;"
+                f"background: {'#274568' if is_dark else '#E5E7EB'}; max-height: 1px; border: none;"
+            )
+        # Update labels that were set with hardcoded colors at build time
+        if hasattr(self, "_greeting_lbl"):
+            self._greeting_lbl.setStyleSheet(
+                f"font-size: 22px; font-weight: 800; background: transparent;"
+                f" color: {'#F9FAFB' if is_dark else '#112D4E'};"
+            )
+        if hasattr(self, "_date_lbl"):
+            self._date_lbl.setStyleSheet(
+                f"font-size: 13px; background: transparent;"
+                f" color: {'#94A3B8' if is_dark else '#64748B'};"
+            )
+        if hasattr(self, "_recent_title"):
+            self._recent_title.setStyleSheet(
+                f"font-size: 15px; font-weight: 700; background: transparent;"
+                f" color: {'#F9FAFB' if is_dark else '#112D4E'};"
             )
         self._load_data()
 
@@ -187,13 +204,20 @@ class DashboardPage(QWidget):
         from auth.auth_manager import auth
         user_name = auth.current_user.nama_lengkap or auth.current_user.username if auth.current_user else "User"
 
-        title_lbl = QLabel(f"{greeting}, {user_name}! 👋")
-        title_lbl.setStyleSheet("font-size: 22px; font-weight: 800; background: transparent;")
-        title_layout.addWidget(title_lbl)
+        is_dark = (self._current_theme == "dark")
+        self._greeting_lbl = QLabel(f"{greeting}, {user_name}! 👋")
+        self._greeting_lbl.setStyleSheet(
+            f"font-size: 22px; font-weight: 800; background: transparent;"
+            f" color: {'#F9FAFB' if is_dark else '#112D4E'};"
+        )
+        title_layout.addWidget(self._greeting_lbl)
 
-        date_lbl = QLabel(now.strftime("%A, %d %B %Y"))
-        date_lbl.setStyleSheet("font-size: 13px; color: #64748B; background: transparent;")
-        title_layout.addWidget(date_lbl)
+        self._date_lbl = QLabel(now.strftime("%A, %d %B %Y"))
+        self._date_lbl.setStyleSheet(
+            f"font-size: 13px; background: transparent;"
+            f" color: {'#94A3B8' if is_dark else '#64748B'};"
+        )
+        title_layout.addWidget(self._date_lbl)
         header_layout.addLayout(title_layout)
         header_layout.addStretch()
 
@@ -277,9 +301,12 @@ class DashboardPage(QWidget):
         recent_layout.setSpacing(12)
 
         recent_header = QHBoxLayout()
-        recent_title = QLabel("Transaksi Terbaru")
-        recent_title.setStyleSheet("font-size: 15px; font-weight: 700; background: transparent;")
-        recent_header.addWidget(recent_title)
+        self._recent_title = QLabel("Transaksi Terbaru")
+        self._recent_title.setStyleSheet(
+            f"font-size: 15px; font-weight: 700; background: transparent;"
+            f" color: {'#F9FAFB' if self._current_theme == 'dark' else '#112D4E'};"
+        )
+        recent_header.addWidget(self._recent_title)
         recent_header.addStretch()
         recent_layout.addLayout(recent_header)
 
@@ -453,7 +480,11 @@ class DashboardPage(QWidget):
                 item_layout.setSpacing(8)
 
                 name_lbl = QLabel(nama)
-                name_lbl.setStyleSheet("font-size: 12px; font-weight: 500; background: transparent;")
+                is_dark = (self._current_theme == "dark")
+                name_lbl.setStyleSheet(
+                    f"font-size: 12px; font-weight: 500; background: transparent;"
+                    f" color: {'#F9FAFB' if is_dark else '#112D4E'};"
+                )
                 name_lbl.setMaximumWidth(140)
                 name_lbl.setWordWrap(False)
                 item_layout.addWidget(name_lbl)

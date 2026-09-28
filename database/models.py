@@ -49,6 +49,7 @@ class Barang(Base):
     stok_min = Column(Integer, default=5)
     satuan = Column(String(20), default="pcs")
     deskripsi = Column(Text, nullable=True)
+    foto = Column(String(255), nullable=True)
     aktif = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
