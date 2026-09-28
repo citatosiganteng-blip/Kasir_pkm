@@ -492,6 +492,31 @@ class CartItemRow(QFrame):
         layout.addWidget(btn_del)
 
 
+class WatermarkScrollArea(QScrollArea):
+    """QScrollArea etalase kasir dengan background watermark logo sekolah yang pudar di tengah"""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        is_dark = db.get_setting("app_theme", "light") == "dark"
+        logo_file = config.LOGO_DARK_PATH if is_dark else config.LOGO_PATH
+        if logo_file.exists():
+            painter = QPainter(self.viewport())
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+            # Opacity pudar lembut (sekitar 7%) agar elegan dan tidak mengganggu konten produk
+            painter.setOpacity(0.06 if is_dark else 0.08)
+            pix = QPixmap(str(logo_file))
+            if not pix.isNull():
+                vw = self.viewport().width()
+                vh = self.viewport().height()
+                size = min(440, max(240, int(min(vw, vh) * 0.72)))
+                scaled = pix.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                x = (vw - scaled.width()) // 2
+                y = (vh - scaled.height()) // 2
+                painter.drawPixmap(x, y, scaled)
+            painter.end()
+
+
 class KasirPage(QWidget):
     """Halaman POS kasir dengan layout modern persis seperti referensi visual"""
     transaction_completed = pyqtSignal()
@@ -552,7 +577,7 @@ class KasirPage(QWidget):
         left_layout.addWidget(self.category_scroll)
 
         # Product Grid Area
-        self.grid_scroll = QScrollArea()
+        self.grid_scroll = WatermarkScrollArea()
         self.grid_scroll.setWidgetResizable(True)
         self.grid_scroll.setStyleSheet("""
             QScrollArea {
@@ -948,6 +973,8 @@ class KasirPage(QWidget):
         self._apply_theme_to_ui()
         self._render_product_grid()
         self._update_cart_display()
+        if hasattr(self, "grid_scroll"):
+            self.grid_scroll.viewport().update()
 
     def _apply_payment_pill_style(self, btn: QPushButton, is_active: bool):
         is_dark = db.get_setting("app_theme", "light") == "dark"

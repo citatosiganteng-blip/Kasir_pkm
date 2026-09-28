@@ -76,6 +76,12 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_PRODUK_DIR = UPLOAD_DIR / "produk"
 UPLOAD_PRODUK_DIR.mkdir(parents=True, exist_ok=True)
 
+# Assets & Branding
+ASSETS_DIR = BASE_DIR / "assets"
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+LOGO_PATH = ASSETS_DIR / "logo.png"
+LOGO_DARK_PATH = ASSETS_DIR / "logo_light_for_dark.png"
+
 # Theme
 THEME = "dark"
 

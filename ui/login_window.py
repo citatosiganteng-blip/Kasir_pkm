@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy, QSpacerItem
 )
 from PyQt5.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, pyqtSignal, QRect, QSize
-from PyQt5.QtGui import QFont, QColor, QLinearGradient, QPainter, QPixmap, QPainterPath
+from PyQt5.QtGui import QFont, QColor, QLinearGradient, QPainter, QPixmap, QPainterPath, QIcon
 
 import config
 from database.db import db
@@ -59,6 +59,8 @@ class LoginWindow(QWidget):
         self.setFixedSize(900, 640)
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
+        if config.LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(config.LOGO_PATH)))
         self._drag_pos = None
         self._theme = db.get_setting("app_theme", "light")
         if self._theme not in ("light", "dark"):
@@ -163,9 +165,15 @@ class LoginWindow(QWidget):
         """)
         logo_layout = QVBoxLayout(logo_frame)
         logo_layout.setContentsMargins(0, 0, 0, 0)
-        logo_icon = QLabel("🏪")
+        logo_icon = QLabel()
         logo_icon.setAlignment(Qt.AlignCenter)
-        logo_icon.setStyleSheet("font-size: 36px; background: transparent; border: none;")
+        if config.LOGO_PATH.exists():
+            pix = QPixmap(str(config.LOGO_PATH)).scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_icon.setPixmap(pix)
+            logo_icon.setStyleSheet("background: transparent; border: none;")
+        else:
+            logo_icon.setText("🏪")
+            logo_icon.setStyleSheet("font-size: 36px; background: transparent; border: none;")
         logo_layout.addWidget(logo_icon)
         layout.addWidget(logo_frame)
         layout.addSpacing(32)

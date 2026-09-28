@@ -337,11 +337,10 @@ QHeaderView::section {
     font-size: 12px;
     text-transform: uppercase;
 }
-QHeaderView::section:first {
-    border-top-left-radius: 10px;
-}
-QHeaderView::section:last {
-    border-top-right-radius: 10px;
+QTableCornerButton::section {
+    background-color: #F9FAFB;
+    border: none;
+    border-bottom: 2px solid #E5E7EB;
 }
 
 /* ===== TAB WIDGET ===== */
@@ -1099,11 +1098,10 @@ QHeaderView::section {
     font-size: 12px;
     text-transform: uppercase;
 }
-QHeaderView::section:first {
-    border-top-left-radius: 10px;
-}
-QHeaderView::section:last {
-    border-top-right-radius: 10px;
+QTableCornerButton::section {
+    background-color: #17324F;
+    border: none;
+    border-bottom: 2px solid #274568;
 }
 
 /* ===== TAB WIDGET ===== */

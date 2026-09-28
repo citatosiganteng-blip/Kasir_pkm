@@ -142,6 +142,9 @@ class ReturPenjualanDialog(QDialog):
         hh.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(42)
+        self.table.setAlternatingRowColors(True)
         layout.addWidget(self.table)
 
         # ── FORM ALASAN & REFUND METHOD ──

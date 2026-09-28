@@ -207,6 +207,9 @@ class PembelianPage(QWidget):
         self.po_table.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeToContents)
         self.po_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.po_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.po_table.verticalHeader().setVisible(False)
+        self.po_table.verticalHeader().setDefaultSectionSize(44)
+        self.po_table.setAlternatingRowColors(True)
         layout.addWidget(self.po_table)
 
         # Actions
@@ -354,6 +357,9 @@ class PembelianPage(QWidget):
         self.cart_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.cart_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
         self.cart_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.cart_table.verticalHeader().setVisible(False)
+        self.cart_table.verticalHeader().setDefaultSectionSize(42)
+        self.cart_table.setAlternatingRowColors(True)
         layout.addWidget(self.cart_table, 1)
 
         # Bottom: Kalkulasi Pajak & Simpan
@@ -434,6 +440,9 @@ class PembelianPage(QWidget):
         self.sup_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.sup_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.sup_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.sup_table.verticalHeader().setVisible(False)
+        self.sup_table.verticalHeader().setDefaultSectionSize(44)
+        self.sup_table.setAlternatingRowColors(True)
         layout.addWidget(self.sup_table)
 
         btn_edit_sup = QPushButton("✏️ Edit Supplier Terpilih")
@@ -473,6 +482,7 @@ class PembelianPage(QWidget):
             # Update tabel supplier di tab 3
             self.sup_table.setRowCount(len(suppliers))
             for i, s in enumerate(suppliers):
+                self.sup_table.setRowHeight(i, 44)
                 self.sup_table.setItem(i, 0, QTableWidgetItem(s.kode))
                 self.sup_table.setItem(i, 1, QTableWidgetItem(s.nama))
                 self.sup_table.setItem(i, 2, QTableWidgetItem(s.kontak or "-"))
@@ -527,17 +537,37 @@ class PembelianPage(QWidget):
 
     def _render_cart_table(self):
         self.cart_table.setRowCount(len(self._cart_items))
+        is_dark = db.get_setting("app_theme", "light") == "dark"
         for i, itm in enumerate(self._cart_items):
+            self.cart_table.setRowHeight(i, 42)
             self.cart_table.setItem(i, 0, QTableWidgetItem(itm["kode"]))
             self.cart_table.setItem(i, 1, QTableWidgetItem(itm["nama"]))
             self.cart_table.setItem(i, 2, QTableWidgetItem(str(itm["qty"])))
             self.cart_table.setItem(i, 3, QTableWidgetItem(format_rupiah(itm["harga_beli"])))
             self.cart_table.setItem(i, 4, QTableWidgetItem(format_rupiah(itm["subtotal"])))
 
+            del_w = QWidget()
+            del_w.setStyleSheet("background: transparent;")
+            del_l = QHBoxLayout(del_w)
+            del_l.setContentsMargins(4, 4, 4, 4)
+            del_l.setAlignment(Qt.AlignCenter)
+
             btn_del = QPushButton("❌")
-            btn_del.setFixedWidth(36)
+            btn_del.setFixedSize(30, 30)
+            btn_del.setCursor(QCursor(Qt.PointingHandCursor))
+            if is_dark:
+                btn_del.setStyleSheet("""
+                    QPushButton { background-color: #451A1A; color: #FCA5A5; border: 1px solid #7F1D1D; border-radius: 6px; font-size: 11px; padding: 0; }
+                    QPushButton:hover { background-color: #DC2626; color: white; }
+                """)
+            else:
+                btn_del.setStyleSheet("""
+                    QPushButton { background-color: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 6px; font-size: 11px; padding: 0; }
+                    QPushButton:hover { background-color: #FCA5A5; color: #991B1B; }
+                """)
             btn_del.clicked.connect(lambda _, idx=i: self._hapus_cart_item(idx))
-            self.cart_table.setCellWidget(i, 5, btn_del)
+            del_l.addWidget(btn_del)
+            self.cart_table.setCellWidget(i, 5, del_w)
 
     def _hapus_cart_item(self, idx: int):
         if 0 <= idx < len(self._cart_items):
@@ -683,6 +713,7 @@ class PembelianPage(QWidget):
         self._filtered_pembelian = filtered
 
         for i, p in enumerate(filtered):
+            self.po_table.setRowHeight(i, 44)
             sup_name = p.supplier.nama if p.supplier else "Umum"
             st_text = "LUNAS" if p.status_bayar == "lunas" else "TEMPO (HUTANG)"
 

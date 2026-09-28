@@ -243,10 +243,11 @@ class PengeluaranPage(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Fixed)
-        self.table.setColumnWidth(5, 90)
+        self.table.setColumnWidth(5, 100)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(48)
         self.table.setAlternatingRowColors(True)
         layout.addWidget(self.table)
 
@@ -294,7 +295,7 @@ class PengeluaranPage(QWidget):
         text_muted = "#94A3B8" if is_dark else "#64748B"
 
         for row, p in enumerate(self._data):
-            self.table.setRowHeight(row, 44)
+            self.table.setRowHeight(row, 48)
             items = [
                 (format_datetime(p["tanggal"]), text_muted),
                 (p["kategori"], "#3F72AF" if not is_dark else "#6B93C2"),
@@ -310,21 +311,59 @@ class PengeluaranPage(QWidget):
 
             # Action
             action_w = QWidget()
+            action_w.setStyleSheet("background: transparent;")
             action_l = QHBoxLayout(action_w)
             action_l.setContentsMargins(4, 4, 4, 4)
             action_l.setSpacing(6)
+            action_l.setAlignment(Qt.AlignCenter)
 
             if auth.is_admin:
                 btn_edit = QPushButton("✏️")
-                btn_edit.setObjectName("btn_secondary")
-                btn_edit.setFixedSize(30, 30)
+                btn_edit.setFixedSize(32, 32)
+                btn_edit.setToolTip("Edit Pengeluaran")
+                if is_dark:
+                    btn_edit.setStyleSheet("""
+                        QPushButton {
+                            background-color: #1E3A5F; color: #93C5FD;
+                            border: 1px solid #2563EB; border-radius: 6px;
+                            font-size: 13px; font-weight: bold; padding: 0px;
+                        }
+                        QPushButton:hover { background-color: #1D4ED8; color: #FFFFFF; }
+                    """)
+                else:
+                    btn_edit.setStyleSheet("""
+                        QPushButton {
+                            background-color: #DBEAFE; color: #1D4ED8;
+                            border: 1px solid #BFDBFE; border-radius: 6px;
+                            font-size: 13px; font-weight: bold; padding: 0px;
+                        }
+                        QPushButton:hover { background-color: #BFDBFE; }
+                    """)
                 btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_edit.clicked.connect(lambda _, pid=p["id"]: self._open_edit(pid))
                 action_l.addWidget(btn_edit)
 
                 btn_del = QPushButton("🗑️")
-                btn_del.setObjectName("btn_secondary")
-                btn_del.setFixedSize(30, 30)
+                btn_del.setFixedSize(32, 32)
+                btn_del.setToolTip("Hapus Pengeluaran")
+                if is_dark:
+                    btn_del.setStyleSheet("""
+                        QPushButton {
+                            background-color: #451A1A; color: #FCA5A5;
+                            border: 1px solid #7F1D1D; border-radius: 6px;
+                            font-size: 13px; padding: 0px;
+                        }
+                        QPushButton:hover { background-color: #DC2626; color: white; }
+                    """)
+                else:
+                    btn_del.setStyleSheet("""
+                        QPushButton {
+                            background-color: #FEE2E2; color: #DC2626;
+                            border: 1px solid #FECACA; border-radius: 6px;
+                            font-size: 13px; padding: 0px;
+                        }
+                        QPushButton:hover { background-color: #FCA5A5; color: #991B1B; }
+                    """)
                 btn_del.setCursor(QCursor(Qt.PointingHandCursor))
                 btn_del.clicked.connect(lambda _, pid=p["id"]: self._delete(pid))
                 action_l.addWidget(btn_del)

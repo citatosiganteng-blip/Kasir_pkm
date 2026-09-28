@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QIcon
 
 import config
 from ui.styles import MAIN_STYLESHEET
@@ -122,6 +122,9 @@ def main():
     app.setApplicationVersion(config.APP_VERSION)
     app.setOrganizationName("PKM Team")
     app.setStyleSheet(MAIN_STYLESHEET)
+
+    if config.LOGO_PATH.exists():
+        app.setWindowIcon(QIcon(str(config.LOGO_PATH)))
 
     # Set default font
     font = QFont("Segoe UI", 10)

@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QStatusBar, QMessageBox, QSpacerItem, QApplication
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
-from PyQt5.QtGui import QFont, QColor, QCursor
+from PyQt5.QtGui import QFont, QColor, QCursor, QIcon, QPixmap
 from datetime import datetime
 
 from auth.auth_manager import auth
@@ -51,6 +51,9 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1100, 720)
         self.showMaximized()
 
+        if config.LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(config.LOGO_PATH)))
+
         self._current_theme = db.get_setting("app_theme", "dark")
         app = QApplication.instance()
         if app:
@@ -80,7 +83,7 @@ class MainWindow(QMainWindow):
         # =====================================================================
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(165)
+        sidebar.setFixedWidth(205)
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(12, 16, 12, 16)
         sidebar_layout.setSpacing(4)
@@ -93,9 +96,15 @@ class MainWindow(QMainWindow):
         brand_layout.setSpacing(8)
 
         store_name = db.get_setting("store_name", config.APP_NAME)
-        brand_icon_lbl = QLabel("🏪")
+        brand_icon_lbl = QLabel()
         brand_icon_lbl.setObjectName("sidebar_brand_icon")
-        brand_icon_lbl.setStyleSheet("font-size: 18px; background: transparent;")
+        if config.LOGO_PATH.exists():
+            pix = QPixmap(str(config.LOGO_PATH)).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            brand_icon_lbl.setPixmap(pix)
+            brand_icon_lbl.setFixedSize(32, 32)
+        else:
+            brand_icon_lbl.setText("🏪")
+            brand_icon_lbl.setStyleSheet("font-size: 18px; background: transparent;")
         brand_layout.addWidget(brand_icon_lbl)
 
         brand_lbl = QLabel(store_name)

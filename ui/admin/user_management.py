@@ -251,10 +251,11 @@ class UserManagementPage(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Fixed)
-        self.table.setColumnWidth(5, 120)
+        self.table.setColumnWidth(5, 140)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(48)
         self.table.setAlternatingRowColors(True)
         layout.addWidget(self.table)
 
@@ -285,7 +286,7 @@ class UserManagementPage(QWidget):
 
         self.table.setRowCount(len(self._users))
         for row, u in enumerate(self._users):
-            self.table.setRowHeight(row, 44)
+            self.table.setRowHeight(row, 70)
 
             items = [
                 (str(u["id"]), muted_color),
@@ -307,36 +308,61 @@ class UserManagementPage(QWidget):
 
             # Actions
             action_w = QWidget()
+            action_w.setStyleSheet("background: transparent;")
             action_l = QHBoxLayout(action_w)
-            action_l.setContentsMargins(4, 4, 4, 4)
+            action_l.setContentsMargins(6, 6, 6, 6)
             action_l.setSpacing(6)
+            action_l.setAlignment(Qt.AlignCenter)
 
             btn_edit = QPushButton("✏️")
-            btn_edit.setFixedSize(32, 30)
-            btn_edit.setObjectName("btn_secondary")
+            btn_edit.setFixedSize(32, 32)
             btn_edit.setToolTip("Edit User")
+            if is_dark:
+                btn_edit.setStyleSheet("""
+                    QPushButton {
+                        background-color: #1E3A5F; color: #93C5FD;
+                        border: 1px solid #2563EB; border-radius: 6px;
+                        font-size: 13px; font-weight: bold; padding: 0px;
+                    }
+                    QPushButton:hover { background-color: #1D4ED8; color: #FFFFFF; }
+                """)
+            else:
+                btn_edit.setStyleSheet("""
+                    QPushButton {
+                        background-color: #DBEAFE; color: #1D4ED8;
+                        border: 3px solid #BFDBFE; border-radius: 6px;
+                        font-size: 13px; font-weight: bold; padding: 0px;
+                    }
+                    QPushButton:hover { background-color: #BFDBFE; }
+                """)
+            btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
             btn_edit.clicked.connect(lambda _, uid=u["id"]: self._open_edit(uid))
             action_l.addWidget(btn_edit)
 
             # Jangan tampilkan tombol hapus untuk user yang sedang login
             if u["id"] != (auth.current_user.id if auth.current_user else None):
                 btn_del = QPushButton("🗑️")
-                btn_del.setFixedSize(32, 30)
+                btn_del.setFixedSize(32, 32)
                 if is_dark:
                     btn_del.setStyleSheet("""
                         QPushButton {
-                            background: #2D1A1A; color: #EF4444; border: 1px solid #4D2020; border-radius: 6px; font-size: 12px;
+                            background-color: #451A1A; color: #FCA5A5;
+                            border: 1px solid #7F1D1D; border-radius: 6px;
+                            font-size: 20px; padding: 0px;
                         }
-                        QPushButton:hover { background: #EF4444; color: white; }
+                        QPushButton:hover { background-color: #DC2626; color: white; }
                     """)
                 else:
                     btn_del.setStyleSheet("""
                         QPushButton {
-                            background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 6px; font-size: 12px;
+                            background-color: #FEE2E2; color: #DC2626;
+                            border: 2px solid #FECACA; border-radius: 2px;
+                            font-size: 13px; padding: 0px;
                         }
-                        QPushButton:hover { background: #FCA5A5; }
+                        QPushButton:hover { background-color: #FCA5A5; color: #991B1B; }
                     """)
-                btn_del.setToolTip("Hapus / Nonaktifkan User")
+                btn_del.setCursor(QCursor(Qt.PointingHandCursor))
+                btn_del.setToolTip("Hapus User Permanen")
                 btn_del.clicked.connect(lambda _, uid=u["id"]: self._delete_user(uid))
                 action_l.addWidget(btn_del)
 
@@ -358,16 +384,38 @@ class UserManagementPage(QWidget):
             self._load_data()
 
     def _delete_user(self, uid: int):
-        reply = QMessageBox.question(
-            self, "Hapus User",
-            "Yakin ingin menghapus user ini?",
+        # Cari data user yang akan dihapus untuk ditampilkan di konfirmasi
+        target_name = ""
+        target_role = ""
+        for u in self._users:
+            if u["id"] == uid:
+                target_name = u["username"]
+                target_role = (u["role"] or "").strip().lower()
+                break
+
+        # Jangan izinkan hapus admin terakhir
+        if target_role == "admin":
+            admin_count = sum(1 for u in self._users if (u["role"] or "").strip().lower() == "admin")
+            if admin_count <= 1:
+                QMessageBox.warning(
+                    self, "Tidak Bisa Hapus",
+                    "Tidak bisa menghapus admin terakhir!\n"
+                    "Harus ada minimal 1 akun admin di sistem."
+                )
+                return
+
+        reply = QMessageBox.warning(
+            self, "Hapus User Permanen",
+            f"Yakin ingin MENGHAPUS PERMANEN user \"{target_name}\"?\n\n"
+            f"\u26a0\ufe0f Aksi ini tidak bisa dibatalkan!\n"
+            f"Data user akan dihapus dari database.",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
         if reply == QMessageBox.Yes:
             with db.get_session() as session:
                 u = session.query(User).filter_by(id=uid).first()
                 if u:
-                    u.aktif = False
+                    session.delete(u)
                     session.commit()
             self._load_data()
 
