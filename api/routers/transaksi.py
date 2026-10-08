@@ -9,7 +9,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 
 from database.db import db
-from database.models import Barang, Transaksi, TransaksiDetail
+from database.models import Barang, Transaksi, TransaksiDetail, Pelanggan
 from utils.helpers import generate_invoice_number
 from api.deps import get_current_user_payload, get_current_user_id, require_admin
 from api.schemas import TransaksiCreate, TransaksiOut, TransaksiDetailOut
@@ -38,15 +38,29 @@ def _transaksi_to_schema(t: Transaksi) -> TransaksiOut:
         tanggal=t.tanggal,
         kasir_id=t.kasir_id,
         kasir_username=kasir_username,
+        pelanggan_id=t.pelanggan_id,
+        nama_pelanggan=t.nama_pelanggan,
+        telepon_pelanggan=t.telepon_pelanggan,
+        alamat_pelanggan=t.alamat_pelanggan,
+        npwp_pelanggan=t.npwp_pelanggan,
         total=t.total,
         diskon_total=t.diskon_total,
         bayar=t.bayar,
         kembalian=t.kembalian,
         metode_bayar=t.metode_bayar,
         status=t.status,
+        status_bayar=t.status_bayar or "lunas",
+        jatuh_tempo=t.jatuh_tempo,
+        dpp=t.dpp or 0.0,
+        ppn_persen=t.ppn_persen or 0.0,
+        ppn_nominal=t.ppn_nominal or 0.0,
+        pph_persen=t.pph_persen or 0.0,
+        pph_nominal=t.pph_nominal or 0.0,
+        no_faktur_pajak=t.no_faktur_pajak,
         catatan=t.catatan,
         detail=detail_list,
     )
+
 
 
 @router.post("", response_model=TransaksiOut, status_code=status.HTTP_201_CREATED)
@@ -91,9 +105,28 @@ def create_transaksi(
         kembalian = max(0.0, body.bayar - total)
         no_invoice = generate_invoice_number(session)
 
+        # Rincian pelanggan
+        nama_pelanggan = body.nama_pelanggan
+        telepon_pelanggan = body.telepon_pelanggan
+        alamat_pelanggan = body.alamat_pelanggan
+        npwp_pelanggan = body.npwp_pelanggan
+
+        if body.pelanggan_id:
+            cust = session.query(Pelanggan).filter_by(id=body.pelanggan_id).first()
+            if cust:
+                nama_pelanggan = nama_pelanggan or cust.nama
+                telepon_pelanggan = telepon_pelanggan or cust.telepon
+                alamat_pelanggan = alamat_pelanggan or cust.alamat
+                npwp_pelanggan = npwp_pelanggan or cust.npwp
+
         transaksi = Transaksi(
             no_invoice=no_invoice,
             kasir_id=user_id,
+            pelanggan_id=body.pelanggan_id,
+            nama_pelanggan=nama_pelanggan,
+            telepon_pelanggan=telepon_pelanggan,
+            alamat_pelanggan=alamat_pelanggan,
+            npwp_pelanggan=npwp_pelanggan,
             total=total,
             diskon_total=diskon_total,
             bayar=body.bayar,
@@ -101,6 +134,14 @@ def create_transaksi(
             metode_bayar=body.metode_bayar,
             catatan=body.catatan,
             status="selesai",
+            status_bayar=body.status_bayar or "lunas",
+            jatuh_tempo=body.jatuh_tempo,
+            dpp=body.dpp or 0.0,
+            ppn_persen=body.ppn_persen or 0.0,
+            ppn_nominal=body.ppn_nominal or 0.0,
+            pph_persen=body.pph_persen or 0.0,
+            pph_nominal=body.pph_nominal or 0.0,
+            no_faktur_pajak=body.no_faktur_pajak,
         )
         session.add(transaksi)
         session.flush()  # dapatkan transaksi.id

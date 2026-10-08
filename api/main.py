@@ -51,6 +51,9 @@ from api.routers.transaksi import router as transaksi_router
 from api.routers.laporan import router as laporan_router
 from api.routers.pengaturan import pengeluaran_router, pengaturan_router
 from api.routers.retur import router as retur_router
+from api.routers.admin import router as admin_router
+from api.routers.pembelian import router as pembelian_router
+from api.routers.pelanggan import router as pelanggan_router
 
 app.include_router(auth_router)
 app.include_router(barang_router)
@@ -59,6 +62,9 @@ app.include_router(retur_router)
 app.include_router(laporan_router)
 app.include_router(pengeluaran_router)
 app.include_router(pengaturan_router)
+app.include_router(admin_router)
+app.include_router(pembelian_router)
+app.include_router(pelanggan_router)
 
 import config
 
@@ -67,13 +73,17 @@ STATIC_DIR = Path(__file__).parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-if config.UPLOAD_DIR.exists():
-    app.mount("/uploads", StaticFiles(directory=str(config.UPLOAD_DIR)), name="uploads")
+# Pastikan folder upload ada
+config.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(config.UPLOAD_DIR)), name="uploads")
 
-    @app.get("/", include_in_schema=False)
-    def serve_pwa():
-        """Sajikan Web UI (PWA) kasir mobile"""
-        return FileResponse(str(STATIC_DIR / "index.html"))
+@app.get("/", include_in_schema=False)
+def serve_pwa():
+    """Sajikan Web UI (PWA) kasir mobile"""
+    index_file = STATIC_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"message": "KasirKu API running. Static UI not found."}
 
 
 # ──────────────────────────── Health Check ────────────────────────────

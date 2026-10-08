@@ -189,7 +189,7 @@ class Pembelian(Base):
     __tablename__ = "pembelian"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    no_faktur = Column(String(50), nullable=False)  # Nomor faktur dari vendor/supplier
+    no_faktur = Column(String(50), unique=True, nullable=False)  # Nomor faktur dari vendor/supplier
     no_po = Column(String(50), unique=True, nullable=False)  # Nomor PO internal toko
     supplier_id = Column(Integer, ForeignKey("supplier.id"), nullable=True)
     tanggal = Column(DateTime, default=datetime.now)

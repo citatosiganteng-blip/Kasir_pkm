@@ -1,5 +1,8 @@
 __pycache__/
+**/__pycache__/
 *.py[cod]
+*.pyc
+*.pyo
 *$py.class
 *.db
 *.db-shm
@@ -12,3 +15,4 @@ ENV/
 .idea/
 .pytest_cache/
 *.pdf
+uploads/produk/

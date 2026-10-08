@@ -607,6 +607,16 @@ class PembelianPage(QWidget):
         grand_total = dpp + ppn_nominal
 
         with db.get_session() as session:
+            # Validasi duplikat no_faktur sebelum simpan
+            existing_faktur = session.query(Pembelian).filter_by(no_faktur=no_faktur).first()
+            if existing_faktur:
+                QMessageBox.warning(
+                    self, "Duplikat Faktur",
+                    f"Nomor Faktur <b>{no_faktur}</b> sudah pernah digunakan "
+                    f"di PO <b>{existing_faktur.no_po}</b>.<br><br>"
+                    "Periksa kembali nomor faktur dari supplier."
+                )
+                return
             no_po = generate_po_number(session)
             tgl_masuk = self.in_tgl_masuk.date().toPyDate()
             tgl_dt = datetime.combine(tgl_masuk, datetime.now().time())

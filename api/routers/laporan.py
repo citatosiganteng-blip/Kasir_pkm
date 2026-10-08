@@ -7,9 +7,12 @@ from datetime import datetime, date, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
+from io import BytesIO, StringIO
+import csv
 
 from database.db import db
-from database.models import Transaksi, TransaksiDetail, Barang, Pengeluaran
+from database.models import Transaksi, TransaksiDetail, Barang, Pengeluaran, Pembelian
 from api.deps import get_current_user_payload
 from api.schemas import DashboardSummaryOut
 
@@ -120,8 +123,15 @@ def laporan_harian(
         total_pengeluaran = sum(p.nominal for p in pengeluaran_list)
 
         by_metode: dict[str, float] = {}
+        top_raw: dict[str, dict] = {}
         for t in transaksi_list:
             by_metode[t.metode_bayar] = by_metode.get(t.metode_bayar, 0) + t.total
+            for d in t.detail:
+                k=d.nama_barang
+                row=top_raw.setdefault(k,{"nama":k,"qty":0,"total":0.0})
+                row["qty"] += d.qty
+                row["total"] += d.subtotal
+        top_produk=sorted(top_raw.values(),key=lambda x:x["qty"],reverse=True)[:10]
 
         return {
             "tanggal": str(target),
@@ -130,8 +140,10 @@ def laporan_harian(
             "total_pengeluaran": total_pengeluaran,
             "laba_bersih": total_penjualan - total_pengeluaran,
             "penjualan_per_metode": by_metode,
+            "top_produk": top_produk,
             "transaksi": [
                 {
+                    "id": t.id,
                     "no_invoice": t.no_invoice,
                     "waktu": t.tanggal.strftime("%H:%M"),
                     "kasir": t.kasir.username if t.kasir else "-",
@@ -149,3 +161,53 @@ def laporan_harian(
                 for p in pengeluaran_list
             ],
         }
+
+
+@router.get('/export.csv')
+def export_csv(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Optional[date]=Query(None), _:dict=Depends(get_current_user_payload)):
+    start=tanggal_mulai or date.today(); end=tanggal_selesai or start
+    with db.get_session() as s:
+        from database.models import TransaksiDetail
+        from sqlalchemy import func
+        rows=s.query(TransaksiDetail.nama_barang, Barang.kategori, func.sum(TransaksiDetail.qty), func.avg(TransaksiDetail.harga), func.sum(TransaksiDetail.subtotal)).join(Transaksi).outerjoin(Barang, Barang.id==TransaksiDetail.barang_id).filter(Transaksi.status=='selesai', Transaksi.tanggal>=datetime.combine(start,datetime.min.time()), Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).group_by(TransaksiDetail.nama_barang, Barang.kategori).order_by(func.sum(TransaksiDetail.qty).desc()).all()
+    out=StringIO(); w=csv.writer(out); w.writerow(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Total Pendapatan'])
+    for i,r in enumerate(rows,1): w.writerow([i,r[0],r[1] or '-',int(r[2] or 0),float(r[3] or 0),float(r[4] or 0)])
+    return StreamingResponse(iter([out.getvalue().encode('utf-8-sig')]),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename=laporan_penjualan_{start}_{end}.csv'})
+
+@router.get('/export.xlsx')
+def export_xlsx(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Optional[date]=Query(None), _:dict=Depends(get_current_user_payload)):
+    start=tanggal_mulai or date.today(); end=tanggal_selesai or start
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    except Exception as e:
+        raise HTTPException(500,'Library openpyxl tidak tersedia')
+    with db.get_session() as s:
+        from database.models import TransaksiDetail
+        from sqlalchemy import func
+        rows=s.query(TransaksiDetail.nama_barang, Barang.kategori, func.sum(TransaksiDetail.qty), func.avg(TransaksiDetail.harga), func.sum(TransaksiDetail.subtotal)).join(Transaksi).outerjoin(Barang, Barang.id==TransaksiDetail.barang_id).filter(Transaksi.status=='selesai', Transaksi.tanggal>=datetime.combine(start,datetime.min.time()), Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).group_by(TransaksiDetail.nama_barang, Barang.kategori).order_by(func.sum(TransaksiDetail.qty).desc()).all()
+    wb=openpyxl.Workbook(); ws=wb.active; ws.title='Laporan Penjualan'
+    ws.append(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Total Pendapatan'])
+    for i,r in enumerate(rows,1): ws.append([i,r[0],r[1] or '-',int(r[2] or 0),float(r[3] or 0),float(r[4] or 0)])
+    for c in ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='2563EB'); c.alignment=Alignment(horizontal='center')
+    bio=BytesIO(); wb.save(bio); bio.seek(0)
+    return StreamingResponse(bio,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename=laporan_penjualan_{start}_{end}.xlsx'})
+
+@router.get('/export-tax.xlsx')
+def export_tax_xlsx(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Optional[date]=Query(None), _:dict=Depends(get_current_user_payload)):
+    start=tanggal_mulai or date.today(); end=tanggal_selesai or start
+    try:
+        import openpyxl
+        from sqlalchemy import func
+    except Exception:
+        raise HTTPException(500,'Library export tidak tersedia')
+    with db.get_session() as s:
+        trx=s.query(Transaksi).filter(Transaksi.status=='selesai',Transaksi.tanggal>=datetime.combine(start,datetime.min.time()),Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).all()
+        pemb=s.query(Pembelian).filter(Pembelian.tanggal>=datetime.combine(start,datetime.min.time()),Pembelian.tanggal<=datetime.combine(end,datetime.max.time())).all()
+    wb=openpyxl.Workbook(); ws=wb.active; ws.title='Rekap Pajak'
+    ws.append(['Jenis','Nomor','Tanggal','DPP','PPN %','PPN Nominal','PPh %','PPh Nominal','Total'])
+    for t in trx: ws.append(['Penjualan',t.no_invoice,t.tanggal.strftime('%Y-%m-%d'),t.dpp,t.ppn_persen,t.ppn_nominal,t.pph_persen,t.pph_nominal,t.total])
+    for p in pemb: ws.append(['Pembelian',p.no_po,p.tanggal.strftime('%Y-%m-%d'),p.dpp,p.ppn_persen,p.ppn_nominal,p.pph_persen,p.pph_nominal,p.total])
+    for c in ws[1]: c.font=openpyxl.styles.Font(bold=True,color='FFFFFF'); c.fill=openpyxl.styles.PatternFill('solid',fgColor='2563EB')
+    bio=BytesIO(); wb.save(bio); bio.seek(0)
+    return StreamingResponse(bio,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename=rekap_pajak_ppn_{start}_{end}.xlsx'})

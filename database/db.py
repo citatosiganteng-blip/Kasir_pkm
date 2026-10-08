@@ -66,6 +66,10 @@ class DatabaseManager:
         # Seed data awal
         self._seed_initial_data()
 
+        # Checkpoint WAL saat startup agar data dari sesi sebelumnya
+        # masuk ke file .db utama (bersihkan WAL tertinggal).
+        self.wal_checkpoint()
+
         return self
 
     def _run_migrations(self):
@@ -128,6 +132,32 @@ class DatabaseManager:
                     "ON login_attempts (username)"
                 ))
                 conn.commit()
+
+                # --- pembelian: tambah unique index no_faktur jika belum ada ---
+                res_idx = conn.execute(text(
+                    "SELECT name FROM sqlite_master WHERE type='index' "
+                    "AND tbl_name='pembelian' AND name='uix_pembelian_no_faktur'"
+                ))
+                if res_idx.fetchone() is None:
+                    # Cek dulu apakah ada data duplikat sebelum buat unique index
+                    res_dup = conn.execute(text(
+                        "SELECT no_faktur, COUNT(*) as cnt FROM pembelian "
+                        "GROUP BY no_faktur HAVING cnt > 1"
+                    ))
+                    duplicates = res_dup.fetchall()
+                    if not duplicates:
+                        conn.execute(text(
+                            "CREATE UNIQUE INDEX uix_pembelian_no_faktur "
+                            "ON pembelian (no_faktur)"
+                        ))
+                        conn.commit()
+                        print("[DatabaseManager] Unique index no_faktur pembelian dibuat.")
+                    else:
+                        print(
+                            f"[DatabaseManager] WARNING: Ditemukan {len(duplicates)} duplikat "
+                            "no_faktur di pembelian. Unique index tidak dibuat. "
+                            "Bersihkan data duplikat dulu melalui menu Pembelian."
+                        )
         except Exception as e:
             print(f"[DatabaseManager] Migration warning: {e}")
 
@@ -261,6 +291,36 @@ class DatabaseManager:
                         ))
 
             # commit dilakukan otomatis oleh context manager
+
+    def wal_checkpoint(self):
+        """
+        Jalankan WAL checkpoint (TRUNCATE mode) untuk memindahkan semua data
+        dari file .db-wal ke .db utama. Dipanggil saat startup (agar DB bersih
+        dari WAL yang tertinggal) dan saat shutdown (agar tidak ada data menggantung).
+        """
+        if self._engine is None:
+            return
+        try:
+            with self._engine.connect() as conn:
+                conn.execute(text("PRAGMA wal_checkpoint(TRUNCATE)"))
+                conn.commit()
+            print("[DatabaseManager] WAL checkpoint selesai.")
+        except Exception as e:
+            print(f"[DatabaseManager] WAL checkpoint warning: {e}")
+
+    def close(self):
+        """
+        Tutup semua koneksi database dengan bersih.
+        Jalankan WAL checkpoint dulu agar semua data masuk ke file .db utama,
+        lalu dispose engine. Dipanggil saat aplikasi shutdown.
+        """
+        self.wal_checkpoint()
+        if self._engine is not None:
+            try:
+                self._engine.dispose()
+                print("[DatabaseManager] Koneksi database ditutup.")
+            except Exception as e:
+                print(f"[DatabaseManager] close warning: {e}")
 
     def reconnect(self, db_path: str = None):
         """

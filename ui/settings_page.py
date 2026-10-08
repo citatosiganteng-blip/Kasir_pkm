@@ -12,6 +12,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor, QCursor
 
+import config
+
 from database.db import db
 from services.backup_service import BackupService
 from services.drawer_service import DrawerService
@@ -190,7 +192,7 @@ class SettingsPage(QWidget):
         form.addRow(self._label("IP Network:"), self.printer_host_input)
 
         self.printer_width_combo = ThemedComboBox()
-        self.printer_width_combo.addItems(["58", "80"])
+        self.printer_width_combo.addItems(["57", "58", "80"])
         self.printer_width_combo.setFixedHeight(40)
         form.addRow(self._label("Lebar Kertas (mm):"), self.printer_width_combo)
 
@@ -298,7 +300,7 @@ class SettingsPage(QWidget):
         self.printer_port_input.setText(db.get_setting("printer_port", "COM1"))
         self.printer_host_input.setText(db.get_setting("printer_host", "192.168.1.100"))
 
-        width = db.get_setting("printer_width", "80")
+        width = db.get_setting("printer_width", str(config.PRINTER_PAPER_WIDTH))
         idx_w = self.printer_width_combo.findText(width)
         if idx_w >= 0:
             self.printer_width_combo.setCurrentIndex(idx_w)

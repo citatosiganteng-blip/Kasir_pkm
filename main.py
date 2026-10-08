@@ -158,7 +158,16 @@ def main():
     # Tampilkan login window
     show_login(app)
 
-    return app.exec_()
+    exit_code = app.exec_()
+
+    # Checkpoint WAL dan tutup koneksi DB dengan bersih saat aplikasi keluar
+    try:
+        from database.db import db
+        db.close()
+    except Exception as e:
+        print(f"[KasirKu] Shutdown DB warning: {e}")
+
+    return exit_code
 
 
 def show_login(app: QApplication):

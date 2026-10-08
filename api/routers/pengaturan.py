@@ -25,18 +25,40 @@ pengeluaran_router = APIRouter(prefix="/api/pengeluaran", tags=["pengeluaran"])
 @pengeluaran_router.get("", response_model=List[PengeluaranOut])
 def list_pengeluaran(
     tanggal: Optional[date] = Query(None),
-    limit: int = Query(50, ge=1, le=500),
+    tanggal_mulai: Optional[date] = Query(None),
+    tanggal_selesai: Optional[date] = Query(None),
+    kategori: Optional[str] = Query(None),
+    limit: int = Query(200, ge=1, le=500),
     _: dict = Depends(get_current_user_payload),
 ):
-    """Daftar pengeluaran. Filter by tanggal opsional."""
+    """Daftar pengeluaran. Filter by tanggal atau rentang tanggal opsional."""
     with db.get_session() as session:
         q = session.query(Pengeluaran)
         if tanggal:
             start = datetime(tanggal.year, tanggal.month, tanggal.day, 0, 0, 0)
             end = datetime(tanggal.year, tanggal.month, tanggal.day, 23, 59, 59)
             q = q.filter(Pengeluaran.tanggal >= start, Pengeluaran.tanggal <= end)
+        else:
+            if tanggal_mulai:
+                start = datetime(tanggal_mulai.year, tanggal_mulai.month, tanggal_mulai.day, 0, 0, 0)
+                q = q.filter(Pengeluaran.tanggal >= start)
+            if tanggal_selesai:
+                end = datetime(tanggal_selesai.year, tanggal_selesai.month, tanggal_selesai.day, 23, 59, 59)
+                q = q.filter(Pengeluaran.tanggal <= end)
+        if kategori:
+            q = q.filter(Pengeluaran.kategori == kategori.strip())
         items = q.order_by(Pengeluaran.tanggal.desc()).limit(limit).all()
         return [PengeluaranOut.model_validate(p) for p in items]
+
+
+@pengeluaran_router.get("/kategori", response_model=List[str])
+def list_kategori_pengeluaran(_: dict = Depends(get_current_user_payload)):
+    """Daftar pilihan kategori pengeluaran."""
+    defaults = ["Listrik & Air", "Gaji Karyawan", "Sewa Tempat", "Bahan Baku & Perlengkapan", "Operasional", "Transportasi", "Lain-lain"]
+    with db.get_session() as session:
+        used = [r[0] for r in session.query(Pengeluaran.kategori).distinct().all() if r[0]]
+    combined = sorted(list(set(defaults + used)))
+    return combined
 
 
 @pengeluaran_router.post("", response_model=PengeluaranOut, status_code=status.HTTP_201_CREATED)
@@ -121,5 +143,7 @@ def update_pengaturan(
     with db.get_session() as session:
         p = session.query(Pengaturan).filter_by(kunci=kunci).first()
         if not p:
-            raise HTTPException(status_code=404, detail=f"Kunci '{kunci}' tidak ditemukan")
+            p = Pengaturan(kunci=kunci, nilai=body.nilai or "")
+            session.add(p)
+            session.flush()
         return PengaturanOut.model_validate(p)

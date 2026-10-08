@@ -17,12 +17,24 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int = 86400  # detik (24 jam)
     user_id: int
     username: str
     role: str
     nama_lengkap: Optional[str] = None
     must_change_password: bool = False
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int = 86400  # detik (24 jam)
 
 
 class UserOut(BaseModel):
@@ -106,6 +118,19 @@ class TransaksiCreate(BaseModel):
     bayar: float = Field(ge=0)
     metode_bayar: str = "cash"          # cash / qris / transfer
     catatan: Optional[str] = None
+    pelanggan_id: Optional[int] = None
+    nama_pelanggan: Optional[str] = None
+    telepon_pelanggan: Optional[str] = None
+    alamat_pelanggan: Optional[str] = None
+    npwp_pelanggan: Optional[str] = None
+    status_bayar: Optional[str] = "lunas"
+    jatuh_tempo: Optional[datetime] = None
+    dpp: Optional[float] = 0.0
+    ppn_persen: Optional[float] = 0.0
+    ppn_nominal: Optional[float] = 0.0
+    pph_persen: Optional[float] = 0.0
+    pph_nominal: Optional[float] = 0.0
+    no_faktur_pajak: Optional[str] = None
 
 
 class TransaksiDetailOut(BaseModel):
@@ -127,16 +152,64 @@ class TransaksiOut(BaseModel):
     tanggal: datetime
     kasir_id: Optional[int] = None
     kasir_username: Optional[str] = None
+    pelanggan_id: Optional[int] = None
+    nama_pelanggan: Optional[str] = None
+    telepon_pelanggan: Optional[str] = None
+    alamat_pelanggan: Optional[str] = None
+    npwp_pelanggan: Optional[str] = None
     total: float
     diskon_total: float
     bayar: float
     kembalian: float
     metode_bayar: str
     status: str
+    status_bayar: Optional[str] = "lunas"
+    jatuh_tempo: Optional[datetime] = None
+    dpp: Optional[float] = 0.0
+    ppn_persen: Optional[float] = 0.0
+    ppn_nominal: Optional[float] = 0.0
+    pph_persen: Optional[float] = 0.0
+    pph_nominal: Optional[float] = 0.0
+    no_faktur_pajak: Optional[str] = None
     catatan: Optional[str] = None
     detail: List[TransaksiDetailOut] = []
 
     model_config = {"from_attributes": True}
+
+
+# ──────────────────────────── PELANGGAN ────────────────────────────
+
+class PelangganCreate(BaseModel):
+    kode: Optional[str] = None
+    nama: str
+    telepon: Optional[str] = None
+    alamat: Optional[str] = None
+    email: Optional[str] = None
+    npwp: Optional[str] = None
+
+
+class PelangganUpdate(BaseModel):
+    nama: Optional[str] = None
+    telepon: Optional[str] = None
+    alamat: Optional[str] = None
+    email: Optional[str] = None
+    npwp: Optional[str] = None
+    aktif: Optional[bool] = None
+
+
+class PelangganOut(BaseModel):
+    id: int
+    kode: str
+    nama: str
+    telepon: Optional[str] = None
+    alamat: Optional[str] = None
+    email: Optional[str] = None
+    npwp: Optional[str] = None
+    aktif: bool
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
 
 
 # ──────────────────────────── PENGELUARAN ────────────────────────────

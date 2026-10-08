@@ -64,6 +64,7 @@ def _get_secret() -> str:
 
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 24
+JWT_REFRESH_EXPIRE_DAYS = 30  # Refresh token berlaku 30 hari
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -71,12 +72,26 @@ bearer_scheme = HTTPBearer(auto_error=False)
 # ──────────────────────────── Token Helpers ────────────────────────────
 
 def create_token(user_id: int, username: str, role: str) -> str:
-    """Buat JWT token untuk user yang login"""
+    """Buat JWT access token untuk user yang login (berlaku 24 jam)"""
     payload = {
         "sub": str(user_id),
         "username": username,
         "role": role,
+        "type": "access",
         "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS),
+        "iat": datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, _get_secret(), algorithm=JWT_ALGORITHM)
+
+
+def create_refresh_token(user_id: int, username: str, role: str) -> str:
+    """Buat JWT refresh token (berlaku 30 hari). Hanya digunakan untuk mendapatkan access token baru."""
+    payload = {
+        "sub": str(user_id),
+        "username": username,
+        "role": role,
+        "type": "refresh",
+        "exp": datetime.now(timezone.utc) + timedelta(days=JWT_REFRESH_EXPIRE_DAYS),
         "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, _get_secret(), algorithm=JWT_ALGORITHM)
@@ -100,7 +115,8 @@ def get_current_user_payload(
 ) -> dict:
     """
     FastAPI dependency: verifikasi token dan kembalikan payload.
-    Raise 401 jika token tidak valid atau tidak ada.
+    Hanya menerima access token (type='access').
+    Raise 401 jika token tidak valid, tidak ada, atau adalah refresh token.
     """
     if credentials is None:
         raise HTTPException(
@@ -113,6 +129,13 @@ def get_current_user_payload(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token tidak valid atau sudah kadaluarsa",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # Tolak refresh token yang coba dipakai sebagai access token
+    if payload.get("type") == "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Gunakan endpoint /api/auth/refresh untuk memperbarui token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return payload

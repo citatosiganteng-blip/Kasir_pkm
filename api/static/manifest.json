@@ -4,9 +4,9 @@
   "description": "Aplikasi kasir mobile untuk UMKM",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0F1117",
-  "theme_color": "#6C63FF",
-  "orientation": "portrait",
+  "background_color": "#F9FAFB",
+  "theme_color": "#2F6FB2",
+  "orientation": "any",
   "icons": [
     {
       "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏪</text></svg>",
