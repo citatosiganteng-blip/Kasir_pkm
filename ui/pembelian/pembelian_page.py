@@ -15,7 +15,7 @@ from PyQt5.QtCore import Qt, QDate, pyqtSignal
 from PyQt5.QtGui import QColor, QFont, QCursor
 
 from database.db import db
-from database.models import Supplier, Pembelian, PembelianDetail, Barang
+from database.models import Supplier, Pembelian, PembelianDetail, Barang, CicilanPembelian
 from auth.auth_manager import auth
 from utils.helpers import (
     format_rupiah, format_tanggal, format_datetime,
@@ -136,6 +136,42 @@ class SupplierDialog(QDialog):
         self.accept()
 
 
+class PaymentInstallmentDialog(QDialog):
+    """Input nominal pembayaran dan jatuh tempo cicilan berikutnya."""
+
+    def __init__(self, outstanding: float, current_due=None, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Catat Pembayaran Cicilan")
+        self.setModal(True)
+        layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self.amount_input = QDoubleSpinBox()
+        self.amount_input.setRange(0.01, max(float(outstanding), 0.01))
+        self.amount_input.setDecimals(2)
+        self.amount_input.setPrefix("Rp ")
+        self.amount_input.setValue(float(outstanding))
+        self.due_input = QDateEdit()
+        self.due_input.setCalendarPopup(True)
+        self.due_input.setDate(QDate.currentDate() if current_due is None else QDate(current_due.year, current_due.month, current_due.day))
+        form.addRow("Sisa tagihan", QLabel(format_rupiah(outstanding)))
+        form.addRow("Dibayar sekarang", self.amount_input)
+        form.addRow("Jatuh tempo sisa", self.due_input)
+        layout.addLayout(form)
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        cancel = QPushButton("Batal")
+        save = QPushButton("Simpan Pembayaran")
+        cancel.clicked.connect(self.reject)
+        save.clicked.connect(self.accept)
+        buttons.addWidget(cancel)
+        buttons.addWidget(save)
+        layout.addLayout(buttons)
+        apply_dialog_theme(self)
+
+    def values(self):
+        return self.amount_input.value(), self.due_input.date().toPyDate()
+
+
 class PembelianPage(QWidget):
     """Halaman Utama Faktur Pembelian (PO), Restock Barang, & Supplier"""
 
@@ -183,7 +219,7 @@ class PembelianPage(QWidget):
         filter_row.addWidget(self.search_po_input, 2)
 
         self.filter_status_combo = ThemedComboBox()
-        self.filter_status_combo.addItems(["Semua Status", "Lunas", "Tempo"])
+        self.filter_status_combo.addItems(["Semua Status", "Lunas", "Tempo", "Cicil"])
         self.filter_status_combo.setFixedHeight(36)
         self.filter_status_combo.currentIndexChanged.connect(self._filter_pembelian_table)
         filter_row.addWidget(self.filter_status_combo, 1)
@@ -223,7 +259,7 @@ class PembelianPage(QWidget):
         self.btn_cetak_po.clicked.connect(self._cetak_selected_po)
         action_row.addWidget(self.btn_cetak_po)
 
-        self.btn_lunasi_tempo = QPushButton("💳 Lunasi Faktur Tempo")
+        self.btn_lunasi_tempo = QPushButton("💳 Catat Cicilan / Lunasi")
         self.btn_lunasi_tempo.setObjectName("btn_success")
         self.btn_lunasi_tempo.setFixedHeight(38)
         self.btn_lunasi_tempo.setCursor(QCursor(Qt.PointingHandCursor))
@@ -295,8 +331,9 @@ class PembelianPage(QWidget):
         self.in_jatuh_tempo.setFixedHeight(36)
 
         self.in_status_bayar = ThemedComboBox()
-        self.in_status_bayar.addItems(["Lunas", "Tempo"])
+        self.in_status_bayar.addItems(["Lunas", "Tempo", "Cicil"])
         self.in_status_bayar.setFixedHeight(36)
+        self.in_status_bayar.currentIndexChanged.connect(self._toggle_initial_payment)
 
         self.in_metode_bayar = ThemedComboBox()
         self.in_metode_bayar.addItems(["Transfer Bank", "Tunai / Cash"])
@@ -311,6 +348,17 @@ class PembelianPage(QWidget):
         row2.addWidget(QLabel("Metode:"))
         row2.addWidget(self.in_metode_bayar, 1)
         h_layout.addLayout(row2)
+        self.initial_payment_row = QHBoxLayout()
+        self.lbl_bayar_awal = QLabel("Dibayar sekarang:")
+        self.in_bayar_awal = QDoubleSpinBox()
+        self.in_bayar_awal.setRange(0, 999999999999)
+        self.in_bayar_awal.setDecimals(2)
+        self.in_bayar_awal.setPrefix("Rp ")
+        self.in_bayar_awal.setFixedHeight(36)
+        self.initial_payment_row.addWidget(self.lbl_bayar_awal)
+        self.initial_payment_row.addWidget(self.in_bayar_awal, 1)
+        h_layout.addLayout(self.initial_payment_row)
+        self._toggle_initial_payment()
         layout.addWidget(header_card)
 
         # Baris Input Produk ke Keranjang Pembelian
@@ -597,7 +645,8 @@ class PembelianPage(QWidget):
             return
 
         supplier_id = self.in_supplier_combo.currentData()
-        status_bayar = "lunas" if self.in_status_bayar.currentIndex() == 0 else "tempo"
+        selected_status = self.in_status_bayar.currentText().lower()
+        status_bayar = selected_status
         metode = "transfer" if self.in_metode_bayar.currentIndex() == 0 else "cash"
 
         dpp = sum(itm["subtotal"] for itm in self._cart_items)
@@ -605,6 +654,10 @@ class PembelianPage(QWidget):
         ppn_persen = 11.0 if ppn_choice == 1 else (12.0 if ppn_choice == 2 else 0.0)
         ppn_nominal = dpp * (ppn_persen / 100.0)
         grand_total = dpp + ppn_nominal
+        paid_now = grand_total if status_bayar == "lunas" else (self.in_bayar_awal.value() if status_bayar == "cicil" else 0.0)
+        if status_bayar == "cicil" and not (0 < paid_now < grand_total):
+            QMessageBox.warning(self, "Validasi Cicilan", "Pembayaran awal harus lebih dari Rp 0 dan kurang dari total faktur.")
+            return
 
         with db.get_session() as session:
             # Validasi duplikat no_faktur sebelum simpan
@@ -630,7 +683,7 @@ class PembelianPage(QWidget):
                 no_po=no_po,
                 supplier_id=supplier_id,
                 tanggal=tgl_dt,
-                jatuh_tempo=jt_dt if status_bayar == "tempo" else None,
+                jatuh_tempo=jt_dt if status_bayar in ("tempo", "cicil") else None,
                 subtotal=dpp,
                 dpp=dpp,
                 ppn_persen=ppn_persen,
@@ -638,11 +691,19 @@ class PembelianPage(QWidget):
                 total=grand_total,
                 status_bayar=status_bayar,
                 metode_bayar=metode,
+                sudah_dibayar=paid_now,
                 catatan=self.in_catatan.text().strip(),
                 user_id=user_id
             )
             session.add(pembelian)
             session.flush()
+
+            if status_bayar == "cicil" and paid_now > 0:
+                session.add(CicilanPembelian(
+                    pembelian_id=pembelian.id, ke=1, nominal=paid_now,
+                    tanggal_bayar=tgl_dt, status="lunas", user_id=user_id,
+                    catatan="Pembayaran awal saat faktur dibuat"
+                ))
 
             # Tambahkan detail dan OTOMATIS TAMBAH STOK BARANG DI DATABASE
             for itm in self._cart_items:
@@ -715,6 +776,8 @@ class PembelianPage(QWidget):
                 matches_st = (p.status_bayar == "lunas")
             elif filter_st == "tempo":
                 matches_st = (p.status_bayar == "tempo")
+            elif filter_st == "cicil":
+                matches_st = (p.status_bayar == "cicil")
 
             if matches_q and matches_st:
                 filtered.append(p)
@@ -725,7 +788,8 @@ class PembelianPage(QWidget):
         for i, p in enumerate(filtered):
             self.po_table.setRowHeight(i, 44)
             sup_name = p.supplier.nama if p.supplier else "Umum"
-            st_text = "LUNAS" if p.status_bayar == "lunas" else "TEMPO (HUTANG)"
+            outstanding = max(0, (p.total or 0) - (p.sudah_dibayar or 0))
+            st_text = "LUNAS" if p.status_bayar == "lunas" else (f"CICIL · sisa {format_rupiah(outstanding)}" if p.status_bayar == "cicil" else "TEMPO (HUTANG)")
 
             self.po_table.setItem(i, 0, QTableWidgetItem(p.no_po))
             self.po_table.setItem(i, 1, QTableWidgetItem(p.no_faktur))
@@ -736,7 +800,7 @@ class PembelianPage(QWidget):
             self.po_table.setItem(i, 6, QTableWidgetItem(format_rupiah(p.total)))
 
             st_item = QTableWidgetItem(st_text)
-            if p.status_bayar == "tempo":
+            if p.status_bayar != "lunas":
                 st_item.setForeground(QColor("#EF4444"))
             else:
                 st_item.setForeground(QColor("#10B981"))
@@ -774,27 +838,42 @@ class PembelianPage(QWidget):
     def _lunasi_selected_tempo(self):
         row = self.po_table.currentRow()
         if row < 0 or row >= len(self._filtered_pembelian):
-            QMessageBox.information(self, "Pilih Data", "Pilih faktur pembelian bertatus tempo yang ingin dilunasi.")
+            QMessageBox.information(self, "Pilih Data", "Pilih faktur pembelian yang masih memiliki sisa pembayaran.")
             return
         p = self._filtered_pembelian[row]
-        if p.status_bayar == "lunas":
+        outstanding = max(0, (p.total or 0) - (p.sudah_dibayar or 0))
+        if outstanding <= 0 or p.status_bayar == "lunas":
             QMessageBox.information(self, "Informasi", "Faktur pembelian ini sudah lunas.")
             return
 
-        reply = QMessageBox.question(
-            self,
-            "Konfirmasi Pelunasan",
-            f"Tandai faktur pembelian <b>{p.no_po}</b> ({format_rupiah(p.total)}) sebagai LUNAS?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            with db.get_session() as session:
-                target = session.query(Pembelian).get(p.id)
-                if target:
-                    target.status_bayar = "lunas"
-                    session.commit()
-            self._load_pembelian_data()
-            QMessageBox.information(self, "Sukses", "Status pembayaran berhasil diubah menjadi Lunas.")
+        dlg = PaymentInstallmentDialog(outstanding, p.jatuh_tempo, self)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        amount, due_date = dlg.values()
+        with db.get_session() as session:
+            target = session.query(Pembelian).get(p.id)
+            if target:
+                due_being_paid = target.jatuh_tempo
+                paid = min((target.sudah_dibayar or 0) + amount, target.total or 0)
+                target.sudah_dibayar = paid
+                target.status_bayar = "lunas" if paid >= (target.total or 0) else "cicil"
+                target.jatuh_tempo = datetime.combine(due_date, datetime.min.time()) if target.status_bayar != "lunas" else None
+                session.add(CicilanPembelian(
+                    pembelian_id=target.id,
+                    ke=(session.query(CicilanPembelian).filter_by(pembelian_id=target.id).count() + 1),
+                    nominal=amount, jatuh_tempo=due_being_paid,
+                    tanggal_bayar=datetime.now(), status="lunas",
+                    user_id=auth.current_user.id if auth.current_user else None,
+                    catatan="Pembayaran cicilan"
+                ))
+                session.commit()
+        self._load_pembelian_data()
+        QMessageBox.information(self, "Pembayaran Dicatat", f"Pembayaran {format_rupiah(amount)} berhasil dicatat.")
+
+    def _toggle_initial_payment(self, *_):
+        is_installment = self.in_status_bayar.currentText().lower() == "cicil"
+        self.lbl_bayar_awal.setVisible(is_installment)
+        self.in_bayar_awal.setVisible(is_installment)
 
     def _retur_selected_pembelian(self):
         row = self.po_table.currentRow()

@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Generator
 
 from database.models import (
-    Base, User, Barang, Pengaturan, LoginAttempt,
+    Base, User, Barang, MenuItem, Pengaturan, LoginAttempt,
     Pelanggan, Supplier, Pembelian, PembelianDetail,
-    ReturPenjualan, ReturPenjualanDetail, ReturPembelian, ReturPembelianDetail
+    ReturPenjualan, ReturPenjualanDetail, ReturPembelian, ReturPembelianDetail,
+    CicilanPembelian
 )
 import config
 
@@ -116,6 +117,25 @@ class DatabaseManager:
                     conn.execute(text("ALTER TABLE barang ADD COLUMN foto VARCHAR(255)"))
                     conn.commit()
 
+                # --- menu_items: buat tabel jika belum ada ---
+                menu_cols = [row[1] for row in conn.execute(text("PRAGMA table_info(menu_items)")).fetchall()]
+                if not menu_cols:
+                    conn.execute(text(
+                        """
+                        CREATE TABLE menu_items (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            barang_id INTEGER NULL,
+                            nama VARCHAR(200) NOT NULL,
+                            harga FLOAT NOT NULL,
+                            foto VARCHAR(255),
+                            urutan INTEGER DEFAULT 0,
+                            aktif BOOLEAN DEFAULT 1,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                        )
+                        """
+                    ))
+                    conn.commit()
+
                 # --- login_attempts: buat tabel jika belum ada ---
                 conn.execute(text(
                     """
@@ -130,6 +150,38 @@ class DatabaseManager:
                 conn.execute(text(
                     "CREATE INDEX IF NOT EXISTS ix_login_attempts_username "
                     "ON login_attempts (username)"
+                ))
+                conn.commit()
+
+                # --- pembelian: tambah kolom sudah_dibayar jika belum ada ---
+                res_pb = conn.execute(text("PRAGMA table_info(pembelian)"))
+                pb_cols = [row[1] for row in res_pb.fetchall()]
+                if "sudah_dibayar" not in pb_cols:
+                    conn.execute(text("ALTER TABLE pembelian ADD COLUMN sudah_dibayar FLOAT DEFAULT 0"))
+                    conn.commit()
+                # Existing invoices marked paid were settled before installment tracking existed.
+                conn.execute(text(
+                    "UPDATE pembelian SET sudah_dibayar = total "
+                    "WHERE status_bayar = 'lunas' AND COALESCE(sudah_dibayar, 0) = 0"
+                ))
+                conn.commit()
+
+                # --- cicilan_pembelian: buat tabel jika belum ada ---
+                conn.execute(text(
+                    """
+                    CREATE TABLE IF NOT EXISTS cicilan_pembelian (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        pembelian_id INTEGER NOT NULL REFERENCES pembelian(id),
+                        ke INTEGER NOT NULL DEFAULT 1,
+                        nominal FLOAT NOT NULL DEFAULT 0,
+                        jatuh_tempo DATETIME,
+                        tanggal_bayar DATETIME,
+                        status VARCHAR(20) DEFAULT 'belum',
+                        catatan TEXT,
+                        user_id INTEGER REFERENCES users(id),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
                 ))
                 conn.commit()
 

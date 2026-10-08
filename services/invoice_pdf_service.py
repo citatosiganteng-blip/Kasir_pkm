@@ -308,8 +308,9 @@ class InvoicePdfService:
         jatuh_tempo_str = format_tanggal(pembelian.jatuh_tempo) if pembelian.jatuh_tempo else "Tunai / Cash"
 
         is_lunas = pembelian.status_bayar == "lunas"
-        status_color = "#047857" if is_lunas else "#DC2626"
-        status_text  = "LUNAS" if is_lunas else "TEMPO / HUTANG"
+        is_cicil = pembelian.status_bayar == "cicil"
+        status_color = "#047857" if is_lunas else ("#B45309" if is_cicil else "#DC2626")
+        status_text  = "LUNAS" if is_lunas else ("CICILAN" if is_cicil else "TEMPO / HUTANG")
         status_badge = f'<span style="background-color: {status_color}; color: #ffffff; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 8.5pt;">{status_text}</span>'
 
         item_rows = []
@@ -341,6 +342,13 @@ class InvoicePdfService:
         pph_nom       = getattr(pembelian, "pph_nominal", 0) or 0
         pph_pct       = getattr(pembelian, "pph_persen",  0) or 0
         total_val     = pembelian.total or 0
+        paid_val      = getattr(pembelian, "sudah_dibayar", 0) or 0
+        outstanding   = max(0, total_val - paid_val)
+        payment_rows = "".join(
+            f"<tr><td style='padding:3px 8px;color:#64748B;'>Cicilan {c.ke} ({format_tanggal(c.tanggal_bayar) if c.tanggal_bayar else 'Belum dibayar'})</td>"
+            f"<td align='right' style='padding:3px 8px;'>{format_rupiah(c.nominal)}</td></tr>"
+            for c in (getattr(pembelian, "cicilan", []) or [])
+        )
 
         ppn_row = f"""
         <tr>
@@ -604,6 +612,9 @@ class InvoicePdfService:
                     <td style="padding: 7px 8px; color: #FFFFFF;">GRAND TOTAL:</td>
                     <td style="padding: 7px 8px; color: #4ADE80;" align="right">{format_rupiah(total_val)}</td>
                 </tr>
+                <tr><td style="padding:5px 8px;color:#64748B;">Sudah Dibayar:</td><td align="right" style="padding:5px 8px;">{format_rupiah(paid_val)}</td></tr>
+                <tr><td style="padding:5px 8px;color:#64748B;font-weight:bold;">Sisa Tagihan:</td><td align="right" style="padding:5px 8px;font-weight:bold;color:{'#047857' if outstanding == 0 else '#DC2626'};">{format_rupiah(outstanding)}</td></tr>
+                {payment_rows}
             </table>
         </td>
     </tr>

@@ -185,11 +185,26 @@ def export_xlsx(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Opti
     with db.get_session() as s:
         from database.models import TransaksiDetail
         from sqlalchemy import func
+        from sqlalchemy.orm import joinedload, selectinload
         rows=s.query(TransaksiDetail.nama_barang, Barang.kategori, func.sum(TransaksiDetail.qty), func.avg(TransaksiDetail.harga), func.sum(TransaksiDetail.subtotal)).join(Transaksi).outerjoin(Barang, Barang.id==TransaksiDetail.barang_id).filter(Transaksi.status=='selesai', Transaksi.tanggal>=datetime.combine(start,datetime.min.time()), Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).group_by(TransaksiDetail.nama_barang, Barang.kategori).order_by(func.sum(TransaksiDetail.qty).desc()).all()
+        purchases=s.query(Pembelian).options(joinedload(Pembelian.supplier),selectinload(Pembelian.detail)).filter(Pembelian.tanggal>=datetime.combine(start,datetime.min.time()),Pembelian.tanggal<=datetime.combine(end,datetime.max.time())).order_by(Pembelian.tanggal.asc()).all()
     wb=openpyxl.Workbook(); ws=wb.active; ws.title='Laporan Penjualan'
     ws.append(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Total Pendapatan'])
     for i,r in enumerate(rows,1): ws.append([i,r[0],r[1] or '-',int(r[2] or 0),float(r[3] or 0),float(r[4] or 0)])
     for c in ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='2563EB'); c.alignment=Alignment(horizontal='center')
+    po_ws=wb.create_sheet('Pembelian & Restock')
+    po_ws.append(['No PO','No Faktur Vendor','Tanggal','Supplier','Barang','Qty Restock','Harga Beli','Subtotal Item','Total Faktur','Sudah Dibayar','Sisa Hutang','Status','Jatuh Tempo'])
+    for p in purchases:
+        detail=p.detail or [None]
+        for item in detail:
+            po_ws.append([p.no_po,p.no_faktur,p.tanggal,p.supplier.nama if p.supplier else 'Umum',item.nama_barang if item else '-',item.qty if item else 0,item.harga_beli if item else 0,item.subtotal if item else 0,p.total or 0,p.sudah_dibayar or 0,max(0,(p.total or 0)-(p.sudah_dibayar or 0)),(p.status_bayar or 'tempo').upper(),p.jatuh_tempo])
+    for c in po_ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='0F766E'); c.alignment=Alignment(horizontal='center',wrap_text=True)
+    for row in po_ws.iter_rows(min_row=2):
+        for c in row:
+            if c.column in (3,13) and c.value: c.number_format='dd/mm/yyyy'
+            elif c.column in (7,8,9,10,11): c.number_format='"Rp" #,##0.00'
+    for col,width in enumerate([18,22,18,24,28,14,18,20,20,20,20,16,18],1): po_ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width=width
+    po_ws.freeze_panes='A2'; po_ws.auto_filter.ref=f'A1:M{max(1,po_ws.max_row)}'
     bio=BytesIO(); wb.save(bio); bio.seek(0)
     return StreamingResponse(bio,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename=laporan_penjualan_{start}_{end}.xlsx'})
 

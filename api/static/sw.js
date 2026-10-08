@@ -4,7 +4,7 @@
 // NAIKKAN angka versi CACHE di bawah ini (v1 -> v2 -> v3, dst).
 // Ini memaksa browser & PWA yang sudah ter-install untuk membuang cache lama
 // dan mengambil versi baru, tanpa perlu instruksikan user clear cache manual.
-const CACHE = 'kasirku-v7-customer-expense-pwa';
+const CACHE = 'kasirku-v9-mobile-installments';
 const PRECACHE = ['/', '/static/manifest.json'];
 
 self.addEventListener('install', e => {

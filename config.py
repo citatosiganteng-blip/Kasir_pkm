@@ -74,7 +74,9 @@ BACKUP_KEEP_DAYS = 30
 # Uploads
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_PRODUK_DIR = UPLOAD_DIR / "produk"
+UPLOAD_MENU_DIR = UPLOAD_DIR / "menu"
 UPLOAD_PRODUK_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_MENU_DIR.mkdir(parents=True, exist_ok=True)
 
 # Assets & Branding
 ASSETS_DIR = BASE_DIR / "assets"

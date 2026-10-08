@@ -10,7 +10,7 @@ import bcrypt
 from sqlalchemy import or_
 from api.deps import require_admin, get_current_user_id, get_current_user_payload
 from database.db import db
-from database.models import User, Supplier, Pembelian, PembelianDetail, Barang, LogDrawer
+from database.models import User, Supplier, Pembelian, PembelianDetail, Barang, LogDrawer, CicilanPembelian
 from utils.helpers import generate_po_number, generate_supplier_code
 from services.backup_service import BackupService
 from services.drawer_service import DrawerService
@@ -133,7 +133,11 @@ def lunasi_pembelian(pembelian_id:int, _:dict=Depends(require_admin)):
         if not p: raise HTTPException(404,'Faktur pembelian tidak ditemukan')
         if p.status_bayar == 'lunas':
             return {"message":"Faktur sudah lunas","status_bayar":p.status_bayar}
+        sisa=max(0,(p.total or 0)-(p.sudah_dibayar or 0))
+        p.sudah_dibayar=(p.sudah_dibayar or 0)+sisa
+        s.add(CicilanPembelian(pembelian_id=p.id,ke=(s.query(CicilanPembelian).filter_by(pembelian_id=p.id).count()+1),nominal=sisa,jatuh_tempo=p.jatuh_tempo,tanggal_bayar=datetime.now(),status='lunas',catatan='Pelunasan melalui mobile'))
         p.status_bayar='lunas'
+        p.jatuh_tempo=None
         s.flush()
         return {"message":"Status pembayaran berhasil diubah menjadi Lunas","status_bayar":p.status_bayar}
 

@@ -55,6 +55,7 @@ class Barang(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     detail_transaksi = relationship("TransaksiDetail", back_populates="barang")
+    menu_items = relationship("MenuItem", back_populates="barang")
 
     def __repr__(self):
         return f"<Barang {self.kode} - {self.nama}>"
@@ -62,6 +63,24 @@ class Barang(Base):
     @property
     def is_low_stock(self):
         return self.stok <= self.stok_min
+
+
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    barang_id = Column(Integer, ForeignKey("barang.id"), nullable=True)
+    nama = Column(String(200), nullable=False)
+    harga = Column(Float, nullable=False, default=0)
+    foto = Column(String(255), nullable=True)
+    urutan = Column(Integer, default=0)
+    aktif = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    barang = relationship("Barang", back_populates="menu_items")
+
+    def __repr__(self):
+        return f"<MenuItem {self.id} - {self.nama}>"
 
 
 class Pelanggan(Base):
@@ -201,9 +220,10 @@ class Pembelian(Base):
     pph_persen = Column(Float, default=0)
     pph_nominal = Column(Float, default=0)
     total = Column(Float, default=0)
-    status_bayar = Column(String(20), default="lunas")  # lunas / tempo
+    status_bayar = Column(String(20), default="lunas")  # lunas / tempo / cicil
     status_barang = Column(String(20), default="diterima")  # diterima / dipesan
     metode_bayar = Column(String(20), default="transfer")
+    sudah_dibayar = Column(Float, default=0)  # akumulasi nominal cicilan yang sudah lunas
     catatan = Column(Text, nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.now)
@@ -214,6 +234,8 @@ class Pembelian(Base):
                           cascade="all, delete-orphan")
     retur = relationship("ReturPembelian", back_populates="pembelian",
                          cascade="all, delete-orphan")
+    cicilan = relationship("CicilanPembelian", back_populates="pembelian",
+                           cascade="all, delete-orphan", order_by="CicilanPembelian.ke")
 
     def __repr__(self):
         return f"<Pembelian {self.no_po} ({self.no_faktur})>"
@@ -343,6 +365,28 @@ class Pengaturan(Base):
 
     def __repr__(self):
         return f"<Pengaturan {self.kunci}={self.nilai}>"
+
+
+class CicilanPembelian(Base):
+    """Menyimpan setiap cicilan pembayaran hutang faktur pembelian."""
+    __tablename__ = "cicilan_pembelian"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    pembelian_id = Column(Integer, ForeignKey("pembelian.id"), nullable=False)
+    ke = Column(Integer, nullable=False, default=1)          # cicilan ke-1, ke-2, ...
+    nominal = Column(Float, nullable=False, default=0)        # jumlah yang dibayar
+    jatuh_tempo = Column(DateTime, nullable=True)             # tenggat cicilan ini
+    tanggal_bayar = Column(DateTime, nullable=True)           # kapan benar-benar dibayar
+    status = Column(String(20), default="belum")              # belum / lunas
+    catatan = Column(Text, nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+
+    pembelian = relationship("Pembelian", back_populates="cicilan")
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<CicilanPembelian cicilan-{self.ke} pembelian_id={self.pembelian_id} Rp{self.nominal:,.0f}>"
 
 
 class LoginAttempt(Base):

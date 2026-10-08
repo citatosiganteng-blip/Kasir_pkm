@@ -437,11 +437,12 @@ class ReturPembelianDialog(QDialog):
                         if brg:
                             brg.stok = max(0, brg.stok - item["qty"])
 
-                # Jika metode potong hutang dan status tempo, potong tagihan PO
-                if metode_kembali == "potong_hutang" and p.status_bayar == "tempo":
+                # Potongan retur mengurangi sisa tagihan pada faktur tempo maupun cicilan.
+                if metode_kembali == "potong_hutang" and p.status_bayar in ("tempo", "cicil"):
                     p.total = max(0.0, p.total - total_retur)
-                    if p.total <= 0:
+                    if p.total <= (p.sudah_dibayar or 0):
                         p.status_bayar = "lunas"
+                        p.sudah_dibayar = p.total
 
                 session.commit()
 

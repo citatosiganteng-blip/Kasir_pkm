@@ -22,7 +22,7 @@ from PyQt5.QtGui import (
 
 from sqlalchemy import func
 from database.db import db
-from database.models import Transaksi, TransaksiDetail, Pengeluaran, Barang
+from database.models import Transaksi, TransaksiDetail, Pengeluaran, Barang, Pembelian
 from ui.dashboard import _rgba
 from utils.helpers import (
     format_rupiah, format_rupiah_short, format_tanggal, format_datetime,
@@ -1153,6 +1153,56 @@ class LaporanPage(QWidget):
                         val_str = str(cell.value)
                         max_len = max(max_len, len(val_str))
                 ws.column_dimensions[col_letter].width = max(max_len + 4, 12)
+
+            # Rekap PO dan barang yang direstock pada periode laporan.
+            ws_buy = wb.create_sheet("Pembelian & Restock")
+            ws_buy.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
+            ws_buy.cell(2, 1, period_str).font = Font(size=11, italic=True, color="64748B")
+            buy_headers = ["No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Nama Barang", "Qty Restock", "Harga Beli", "Subtotal Item", "Total Faktur", "Sudah Dibayar", "Sisa Hutang", "Status", "Jatuh Tempo"]
+            for col_idx, heading in enumerate(buy_headers, 1):
+                cell = ws_buy.cell(4, col_idx, heading)
+                cell.font = Font(bold=True, color="FFFFFF", size=10)
+                cell.fill = PatternFill("solid", fgColor="0F766E")
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+                cell.border = thin_border
+            with db.get_session() as session:
+                purchases = session.query(Pembelian).filter(
+                    Pembelian.tanggal >= self._dt_from,
+                    Pembelian.tanggal <= self._dt_to
+                ).order_by(Pembelian.tanggal.asc()).all()
+                buy_row = 5
+                for purchase in purchases:
+                    details = purchase.detail or []
+                    if not details:
+                        details = [None]
+                    for detail in details:
+                        values = [
+                            purchase.no_po, purchase.no_faktur, purchase.tanggal,
+                            purchase.supplier.nama if purchase.supplier else "Umum",
+                            detail.nama_barang if detail else "-",
+                            detail.qty if detail else 0,
+                            detail.harga_beli if detail else 0,
+                            detail.subtotal if detail else 0,
+                            purchase.total or 0, purchase.sudah_dibayar or 0,
+                            max(0, (purchase.total or 0) - (purchase.sudah_dibayar or 0)),
+                            (purchase.status_bayar or "tempo").upper(), purchase.jatuh_tempo
+                        ]
+                        for col_idx, value in enumerate(values, 1):
+                            cell = ws_buy.cell(buy_row, col_idx, value)
+                            cell.border = thin_border
+                            if col_idx in (3, 13) and value:
+                                cell.number_format = "dd/mm/yyyy"
+                            elif col_idx in (6,):
+                                cell.number_format = "#,##0.##"
+                            elif col_idx in (7, 8, 9, 10, 11):
+                                cell.number_format = '"Rp" #,##0.00'
+                            if col_idx in (6, 7, 8, 9, 10, 11):
+                                cell.alignment = Alignment(horizontal="right")
+                        buy_row += 1
+            for col_idx, width in enumerate([18, 22, 18, 24, 28, 14, 18, 20, 20, 20, 20, 16, 18], 1):
+                ws_buy.column_dimensions[get_column_letter(col_idx)].width = width
+            ws_buy.freeze_panes = "A5"
+            ws_buy.auto_filter.ref = f"A4:M{max(4, buy_row - 1)}"
 
             wb.save(filepath)
 

@@ -24,6 +24,7 @@ from utils.helpers import (
 from services.printer_service import PrinterService
 from services.drawer_service import DrawerService
 from services.invoice_pdf_service import InvoicePdfService
+from ui.menu.menu_display_widget import MenuDisplayWidget
 
 
 class CartItem:
@@ -528,6 +529,8 @@ class KasirPage(QWidget):
         self._active_category = "Semua"
         self._selected_metode = "Tunai"
         self._nominal_bayar = 0.0
+        self.menu_display = MenuDisplayWidget(self)
+        self.menu_display.hide()
 
         self._setup_ui()
         self._load_barang()
