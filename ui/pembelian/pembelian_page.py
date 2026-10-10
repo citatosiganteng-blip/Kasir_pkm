@@ -11,9 +11,10 @@ from PyQt5.QtWidgets import (
     QFormLayout, QTabWidget, QSpinBox, QDoubleSpinBox,
     QFileDialog, QAbstractItemView, QTextEdit
 )
-from PyQt5.QtCore import Qt, QDate, pyqtSignal
-from PyQt5.QtGui import QColor, QFont, QCursor
+from PyQt5.QtCore import Qt, QDate, pyqtSignal, QSize
+from PyQt5.QtGui import QColor, QFont, QCursor, QIcon, QPainter, QPixmap
 
+import config
 from database.db import db
 from database.models import Supplier, Pembelian, PembelianDetail, Barang, CicilanPembelian
 from auth.auth_manager import auth
@@ -403,10 +404,11 @@ class PembelianPage(QWidget):
             "Kode", "Nama Barang", "Qty", "Harga Beli Satuan", "Subtotal", "Aksi"
         ])
         self.cart_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.cart_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.cart_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Fixed)
+        self.cart_table.setColumnWidth(5, 120)
         self.cart_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.cart_table.verticalHeader().setVisible(False)
-        self.cart_table.verticalHeader().setDefaultSectionSize(42)
+        self.cart_table.verticalHeader().setDefaultSectionSize(58)
         self.cart_table.setAlternatingRowColors(True)
         layout.addWidget(self.cart_table, 1)
 
@@ -516,6 +518,7 @@ class PembelianPage(QWidget):
     def on_theme_changed(self, theme: str):
         """Callback saat tema berubah"""
         self.refresh()
+        self._render_cart_table()
 
     def _load_supplier_data(self):
         with db.get_session() as session:
@@ -587,7 +590,7 @@ class PembelianPage(QWidget):
         self.cart_table.setRowCount(len(self._cart_items))
         is_dark = db.get_setting("app_theme", "light") == "dark"
         for i, itm in enumerate(self._cart_items):
-            self.cart_table.setRowHeight(i, 42)
+            self.cart_table.setRowHeight(i, 58)
             self.cart_table.setItem(i, 0, QTableWidgetItem(itm["kode"]))
             self.cart_table.setItem(i, 1, QTableWidgetItem(itm["nama"]))
             self.cart_table.setItem(i, 2, QTableWidgetItem(str(itm["qty"])))
@@ -597,28 +600,105 @@ class PembelianPage(QWidget):
             del_w = QWidget()
             del_w.setStyleSheet("background: transparent;")
             del_l = QHBoxLayout(del_w)
-            del_l.setContentsMargins(4, 4, 4, 4)
+            del_l.setContentsMargins(6, 4, 6, 4)
+            del_l.setSpacing(4)
             del_l.setAlignment(Qt.AlignCenter)
 
-            btn_del = QPushButton("❌")
-            btn_del.setFixedSize(30, 30)
+            btn_edit = QPushButton()
+            btn_edit.setFixedSize(32, 32)
+            edit_pixmap = QPixmap(str(config.ASSETS_DIR / "edit.png")).scaled(
+                20, 20, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            tinted_edit = QPixmap(edit_pixmap.size())
+            tinted_edit.fill(Qt.transparent)
+            icon_painter = QPainter(tinted_edit)
+            icon_painter.drawPixmap(0, 0, edit_pixmap)
+            icon_painter.setCompositionMode(QPainter.CompositionMode_SourceIn)
+            icon_painter.fillRect(
+                tinted_edit.rect(),
+                QColor("#93C5FD" if is_dark else "#1D4ED8"),
+            )
+            icon_painter.end()
+            btn_edit.setIcon(QIcon(tinted_edit))
+            btn_edit.setIconSize(QSize(20, 20))
+            btn_edit.setToolTip("Edit qty dan harga beli")
+            btn_edit.setAccessibleName(f"Edit {itm['nama']} di faktur")
+            btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
+
+            btn_del = QPushButton("×")
+            btn_del.setFixedSize(32, 32)
+            btn_del.setToolTip("Hapus barang ini dari faktur")
+            btn_del.setAccessibleName(f"Hapus {itm['nama']} dari faktur")
             btn_del.setCursor(QCursor(Qt.PointingHandCursor))
             if is_dark:
+                btn_edit.setStyleSheet("QPushButton { background: #17324F; color: #93C5FD; border: 1px solid #274568; border-radius: 7px; font-size: 18px; padding: 0; } QPushButton:hover { background: #274568; }")
                 btn_del.setStyleSheet("""
-                    QPushButton { background-color: #451A1A; color: #FCA5A5; border: 1px solid #7F1D1D; border-radius: 6px; font-size: 11px; padding: 0; }
+                    QPushButton { background-color: #451A1A; color: #FCA5A5; border: 1px solid #7F1D1D; border-radius: 7px; font-size: 20px; padding: 0; }
                     QPushButton:hover { background-color: #DC2626; color: white; }
                 """)
             else:
+                btn_edit.setStyleSheet("QPushButton { background: #DBEAFE; color: #1D4ED8; border: 1px solid #BFDBFE; border-radius: 7px; font-size: 18px; padding: 0; } QPushButton:hover { background: #BFDBFE; }")
                 btn_del.setStyleSheet("""
-                    QPushButton { background-color: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 6px; font-size: 11px; padding: 0; }
+                    QPushButton { background-color: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; border-radius: 7px; font-size: 20px; padding: 0; }
                     QPushButton:hover { background-color: #FCA5A5; color: #991B1B; }
                 """)
+            btn_edit.clicked.connect(lambda _, idx=i: self._edit_cart_item(idx))
             btn_del.clicked.connect(lambda _, idx=i: self._hapus_cart_item(idx))
+            del_l.addWidget(btn_edit)
             del_l.addWidget(btn_del)
             self.cart_table.setCellWidget(i, 5, del_w)
 
+    def _edit_cart_item(self, idx: int):
+        if not 0 <= idx < len(self._cart_items):
+            return
+
+        item = self._cart_items[idx]
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Edit Barang - {item['nama']}")
+        dialog.setModal(True)
+
+        form = QFormLayout(dialog)
+        qty_input = QSpinBox()
+        qty_input.setRange(1, 100000)
+        qty_input.setValue(item["qty"])
+        price_input = QDoubleSpinBox()
+        price_input.setRange(0, 1000000000)
+        price_input.setDecimals(2)
+        price_input.setSingleStep(1000)
+        price_input.setPrefix("Rp ")
+        price_input.setValue(item["harga_beli"])
+        form.addRow("Qty Masuk:", qty_input)
+        form.addRow("Harga Beli Satuan:", price_input)
+
+        actions = QHBoxLayout()
+        btn_cancel = QPushButton("Batal")
+        btn_save = QPushButton("Simpan")
+        btn_cancel.clicked.connect(dialog.reject)
+        btn_save.clicked.connect(dialog.accept)
+        actions.addStretch()
+        actions.addWidget(btn_cancel)
+        actions.addWidget(btn_save)
+        form.addRow(actions)
+
+        if dialog.exec_() == QDialog.Accepted:
+            item["qty"] = qty_input.value()
+            item["harga_beli"] = price_input.value()
+            item["subtotal"] = item["qty"] * item["harga_beli"]
+            self._render_cart_table()
+            self._hitung_kalkulasi_total()
+
     def _hapus_cart_item(self, idx: int):
         if 0 <= idx < len(self._cart_items):
+            item_name = self._cart_items[idx]["nama"]
+            answer = QMessageBox.question(
+                self,
+                "Konfirmasi Hapus",
+                f"Hapus {item_name} dari faktur yang sedang dibuat?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                return
             self._cart_items.pop(idx)
             self._render_cart_table()
             self._hitung_kalkulasi_total()

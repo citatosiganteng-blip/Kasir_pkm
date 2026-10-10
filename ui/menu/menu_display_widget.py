@@ -88,11 +88,14 @@ class MenuDisplayWidget(QWidget):
 
     def _render_grid(self):
         for i in reversed(range(self.grid_layout.count())):
-            widget = self.grid_layout.itemAt(i).widget()
-            if widget is not None:
-                widget.setParent(None)
+            layout_item = self.grid_layout.takeAt(i)
+            widget = layout_item.widget()
+            if widget is None or widget is self.empty_label:
+                continue
+            widget.deleteLater()
 
         if not self._filtered_items:
+            self.grid_layout.addWidget(self.empty_label, 0, 0)
             self.empty_label.setVisible(True)
             return
 
