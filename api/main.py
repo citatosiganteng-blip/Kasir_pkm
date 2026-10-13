@@ -73,6 +73,8 @@ STATIC_DIR = Path(__file__).parent / "static"
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+app.mount("/assets", StaticFiles(directory=str(config.ASSETS_DIR)), name="assets")
+
 # Pastikan folder upload ada
 config.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(config.UPLOAD_DIR)), name="uploads")
