@@ -6,15 +6,18 @@ Endpoint: dashboard summary, laporan harian
 from datetime import datetime, date, timedelta
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from io import BytesIO, StringIO
 import csv
 
 from database.db import db
-from database.models import Transaksi, TransaksiDetail, Barang, Pengeluaran, Pembelian
+from database.models import (
+    Transaksi, TransaksiDetail, Barang, Pengeluaran, Pembelian, ReturPembelian,
+)
 from api.deps import get_current_user_payload
 from api.schemas import DashboardSummaryOut
+from utils.helpers import get_pembelian_status_display
 
 router = APIRouter(prefix="/api/laporan", tags=["laporan"])
 
@@ -187,24 +190,84 @@ def export_xlsx(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Opti
         from sqlalchemy import func
         from sqlalchemy.orm import joinedload, selectinload
         rows=s.query(TransaksiDetail.nama_barang, Barang.kategori, func.sum(TransaksiDetail.qty), func.avg(TransaksiDetail.harga), func.sum(TransaksiDetail.subtotal)).join(Transaksi).outerjoin(Barang, Barang.id==TransaksiDetail.barang_id).filter(Transaksi.status=='selesai', Transaksi.tanggal>=datetime.combine(start,datetime.min.time()), Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).group_by(TransaksiDetail.nama_barang, Barang.kategori).order_by(func.sum(TransaksiDetail.qty).desc()).all()
-        purchases=s.query(Pembelian).options(joinedload(Pembelian.supplier),selectinload(Pembelian.detail)).filter(Pembelian.tanggal>=datetime.combine(start,datetime.min.time()),Pembelian.tanggal<=datetime.combine(end,datetime.max.time())).order_by(Pembelian.tanggal.asc()).all()
+        purchases=s.query(Pembelian).options(
+            joinedload(Pembelian.supplier),
+            selectinload(Pembelian.detail),
+            selectinload(Pembelian.retur).selectinload(ReturPembelian.detail),
+        ).filter(
+            Pembelian.tanggal >= datetime.combine(start, datetime.min.time()),
+            Pembelian.tanggal <= datetime.combine(end, datetime.max.time()),
+        ).order_by(Pembelian.tanggal.asc()).all()
     wb=openpyxl.Workbook(); ws=wb.active; ws.title='Laporan Penjualan'
     ws.append(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Total Pendapatan'])
     for i,r in enumerate(rows,1): ws.append([i,r[0],r[1] or '-',int(r[2] or 0),float(r[3] or 0),float(r[4] or 0)])
     for c in ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='2563EB'); c.alignment=Alignment(horizontal='center')
     po_ws=wb.create_sheet('Pembelian & Restock')
-    po_ws.append(['No PO','No Faktur Vendor','Tanggal','Supplier','Barang','Qty Restock','Harga Beli','Subtotal Item','Total Faktur','Sudah Dibayar','Sisa Hutang','Status','Jatuh Tempo'])
+    store_name = db.get_setting("store_name", "KasirKu")
+    po_ws.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
+    po_ws.cell(2, 1, f"Periode: {start.strftime('%d/%m/%Y')} s/d {end.strftime('%d/%m/%Y')}").font = Font(size=11, italic=True, color="64748B")
+    po_headers = [
+        "No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Nama Barang",
+        "Qty Restock", "Harga Beli", "Subtotal Item", "Total Faktur",
+        "Sudah Dibayar", "Sisa Hutang", "Status", "Jatuh Tempo",
+        "Keterangan Retur",
+    ]
+    po_border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1"),
+    )
+    for col_idx, heading in enumerate(po_headers, 1):
+        cell = po_ws.cell(4, col_idx, heading)
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+        cell.fill = PatternFill("solid", fgColor="0F766E")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = po_border
     for p in purchases:
         detail=p.detail or [None]
+        status_text, return_note = get_pembelian_status_display(p)
         for item in detail:
-            po_ws.append([p.no_po,p.no_faktur,p.tanggal,p.supplier.nama if p.supplier else 'Umum',item.nama_barang if item else '-',item.qty if item else 0,item.harga_beli if item else 0,item.subtotal if item else 0,p.total or 0,p.sudah_dibayar or 0,max(0,(p.total or 0)-(p.sudah_dibayar or 0)),(p.status_bayar or 'tempo').upper(),p.jatuh_tempo])
-    for c in po_ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='0F766E'); c.alignment=Alignment(horizontal='center',wrap_text=True)
-    for row in po_ws.iter_rows(min_row=2):
-        for c in row:
-            if c.column in (3,13) and c.value: c.number_format='dd/mm/yyyy'
-            elif c.column in (7,8,9,10,11): c.number_format='"Rp" #,##0.00'
-    for col,width in enumerate([18,22,18,24,28,14,18,20,20,20,20,16,18],1): po_ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width=width
-    po_ws.freeze_panes='A2'; po_ws.auto_filter.ref=f'A1:M{max(1,po_ws.max_row)}'
+            po_ws.append([
+                p.no_po, p.no_faktur, p.tanggal, p.supplier.nama if p.supplier else "Umum",
+                item.nama_barang if item else "-", item.qty if item else 0,
+                item.harga_beli if item else 0, item.subtotal if item else 0,
+                p.total or 0, p.sudah_dibayar or 0,
+                max(0, (p.total or 0) - (p.sudah_dibayar or 0)),
+                status_text, p.jatuh_tempo, return_note or "-",
+            ])
+            row_num = po_ws.max_row
+            for c in po_ws[row_num]:
+                c.border = po_border
+                if c.column in (3, 13) and c.value:
+                    c.number_format = "dd/mm/yyyy"
+                elif c.column == 6:
+                    c.number_format = "#,##0.##"
+                elif c.column in (7, 8, 9, 10, 11):
+                    c.number_format = '"Rp" #,##0.00'
+                if c.column in (6, 7, 8, 9, 10, 11):
+                    c.alignment = Alignment(horizontal="right", vertical="top")
+                elif c.column == 14:
+                    c.alignment = Alignment(vertical="top", wrap_text=True)
+                else:
+                    c.alignment = Alignment(vertical="top")
+
+            status_cell = po_ws.cell(row_num, 12)
+            if p.retur:
+                status_cell.font = Font(color="B45309", bold=True)
+                status_cell.fill = PatternFill("solid", fgColor="FEF3C7")
+                po_ws.cell(row_num, 14).font = Font(color="B45309")
+                po_ws.cell(row_num, 14).fill = PatternFill("solid", fgColor="FEF3C7")
+            elif p.status_bayar in ("tempo", "cicil"):
+                status_cell.font = Font(color="DC2626", bold=True)
+                status_cell.fill = PatternFill("solid", fgColor="FEE2E2")
+            elif p.status_bayar == "lunas":
+                status_cell.font = Font(color="059669", bold=True)
+
+    for col,width in enumerate([18,22,18,24,28,14,18,20,20,20,20,34,18,55],1):
+        po_ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width=width
+    po_ws.freeze_panes='A5'; po_ws.auto_filter.ref=f'A4:N{max(4,po_ws.max_row)}'
+    po_ws.row_dimensions[4].height = 32
     bio=BytesIO(); wb.save(bio); bio.seek(0)
     return StreamingResponse(bio,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename=laporan_penjualan_{start}_{end}.xlsx'})
 

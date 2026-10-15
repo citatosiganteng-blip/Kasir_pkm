@@ -15,6 +15,48 @@ def format_rupiah(amount: float) -> str:
         return "Rp 0"
 
 
+def get_pembelian_status_display(pembelian) -> tuple[str, str]:
+    """Return the visible purchase status and a readable summary of its returns."""
+    retur_list = getattr(pembelian, "retur", None) or []
+    metode_labels = {
+        "potong_hutang": "POTONG HUTANG/TAGIHAN",
+        "refund_cash": "REFUND CASH/TRANSFER",
+    }
+
+    if retur_list:
+        metode_names = []
+        return_notes = []
+        for retur in retur_list:
+            metode = retur.metode_kembali or ""
+            metode_label = metode_labels.get(metode, metode.replace("_", " ").upper() or "LAINNYA")
+            if metode_label not in metode_names:
+                metode_names.append(metode_label)
+            alasan = (retur.alasan or "").strip() or "Alasan tidak dicantumkan"
+            no_retur = (retur.no_retur or "").strip()
+            detail = f"{no_retur} - {alasan}" if no_retur else alasan
+            return_notes.append(f"{detail} ({metode_label})")
+
+        status_text = f"RETUR - {' + '.join(metode_names)}"
+        outstanding = max(0, (pembelian.total or 0) - (pembelian.sudah_dibayar or 0))
+        if outstanding:
+            status_text += f" · SISA HUTANG {format_rupiah(outstanding)}"
+        return status_text, "; ".join(return_notes)
+
+    status = (pembelian.status_bayar or "tempo").lower()
+    if status == "cicil":
+        outstanding = max(0, (pembelian.total or 0) - (pembelian.sudah_dibayar or 0))
+        return f"CICIL · sisa {format_rupiah(outstanding)}", ""
+    if status == "tempo":
+        return "TEMPO (HUTANG)", ""
+    return status.upper(), ""
+
+
+def apply_potong_hutang_retur(pembelian, total_retur: float) -> None:
+    """Reduce a tempo/installment balance without rewriting payment history."""
+    if pembelian.status_bayar in ("tempo", "cicil"):
+        pembelian.total = max(0.0, (pembelian.total or 0) - total_retur)
+
+
 def format_rupiah_short(amount: float) -> str:
     """Format rupiah singkat (rb, jt, m)"""
     try:
@@ -295,4 +337,3 @@ def generate_retur_pembelian_number(session) -> str:
     else:
         new_num = 1
     return f"{prefix}{new_num:03d}"
-

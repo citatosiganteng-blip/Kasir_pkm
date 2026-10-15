@@ -26,7 +26,7 @@ from database.models import Transaksi, TransaksiDetail, Pengeluaran, Barang, Pem
 from ui.dashboard import _rgba
 from utils.helpers import (
     format_rupiah, format_rupiah_short, format_tanggal, format_datetime,
-    get_today_range, get_month_range
+    get_today_range, get_month_range, get_pembelian_status_display
 )
 from datetime import datetime, date, timedelta
 import os
@@ -1158,7 +1158,7 @@ class LaporanPage(QWidget):
             ws_buy = wb.create_sheet("Pembelian & Restock")
             ws_buy.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
             ws_buy.cell(2, 1, period_str).font = Font(size=11, italic=True, color="64748B")
-            buy_headers = ["No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Nama Barang", "Qty Restock", "Harga Beli", "Subtotal Item", "Total Faktur", "Sudah Dibayar", "Sisa Hutang", "Status", "Jatuh Tempo"]
+            buy_headers = ["No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Nama Barang", "Qty Restock", "Harga Beli", "Subtotal Item", "Total Faktur", "Sudah Dibayar", "Sisa Hutang", "Status", "Jatuh Tempo", "Keterangan Retur"]
             for col_idx, heading in enumerate(buy_headers, 1):
                 cell = ws_buy.cell(4, col_idx, heading)
                 cell.font = Font(bold=True, color="FFFFFF", size=10)
@@ -1172,6 +1172,7 @@ class LaporanPage(QWidget):
                 ).order_by(Pembelian.tanggal.asc()).all()
                 buy_row = 5
                 for purchase in purchases:
+                    status_text, retur_note = get_pembelian_status_display(purchase)
                     details = purchase.detail or []
                     if not details:
                         details = [None]
@@ -1185,7 +1186,7 @@ class LaporanPage(QWidget):
                             detail.subtotal if detail else 0,
                             purchase.total or 0, purchase.sudah_dibayar or 0,
                             max(0, (purchase.total or 0) - (purchase.sudah_dibayar or 0)),
-                            (purchase.status_bayar or "tempo").upper(), purchase.jatuh_tempo
+                            status_text, purchase.jatuh_tempo, retur_note or "-"
                         ]
                         for col_idx, value in enumerate(values, 1):
                             cell = ws_buy.cell(buy_row, col_idx, value)
@@ -1198,11 +1199,22 @@ class LaporanPage(QWidget):
                                 cell.number_format = '"Rp" #,##0.00'
                             if col_idx in (6, 7, 8, 9, 10, 11):
                                 cell.alignment = Alignment(horizontal="right")
+                        status_cell = ws_buy.cell(buy_row, 12)
+                        if purchase.retur:
+                            status_cell.font = Font(color="B45309", bold=True)
+                            status_cell.fill = PatternFill("solid", fgColor="FEF3C7")
+                            ws_buy.cell(buy_row, 14).font = Font(color="B45309")
+                            ws_buy.cell(buy_row, 14).fill = PatternFill("solid", fgColor="FEF3C7")
+                        elif purchase.status_bayar in ("tempo", "cicil"):
+                            status_cell.font = Font(color="DC2626", bold=True)
+                            status_cell.fill = PatternFill("solid", fgColor="FEE2E2")
+                        elif purchase.status_bayar == "lunas":
+                            status_cell.font = Font(color="059669", bold=True)
                         buy_row += 1
-            for col_idx, width in enumerate([18, 22, 18, 24, 28, 14, 18, 20, 20, 20, 20, 16, 18], 1):
+            for col_idx, width in enumerate([18, 22, 18, 24, 28, 14, 18, 20, 20, 20, 20, 34, 18, 55], 1):
                 ws_buy.column_dimensions[get_column_letter(col_idx)].width = width
             ws_buy.freeze_panes = "A5"
-            ws_buy.auto_filter.ref = f"A4:M{max(4, buy_row - 1)}"
+            ws_buy.auto_filter.ref = f"A4:N{max(4, buy_row - 1)}"
 
             wb.save(filepath)
 
