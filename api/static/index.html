@@ -268,6 +268,7 @@
     .fkt-row.tempo { border-left: 3px solid var(--warning); }
     .fkt-row.lunas { border-left: 3px solid var(--success); }
     .fkt-row.cicil { border-left: 3px solid var(--accent); }
+    .fkt-row.retur { border-left: 3px solid #d97706; }
     .fkt-pay-action { width:100%; justify-content:center; margin-top:9px; min-height:42px; }
     .fkt-row-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
     .fkt-no { font-size: 13px; font-weight: 700; font-family: monospace; color: var(--accent-light); }
@@ -276,6 +277,7 @@
     .fkt-badge.tempo { background: rgba(245,158,11,.15); color: var(--warning); }
     .fkt-badge.lunas { background: rgba(16,185,129,.15); color: var(--success); }
     .fkt-badge.cicil { background: rgba(108,99,255,.15); color: var(--accent-light); }
+    .fkt-badge.retur { background: #fef3c7; color: #92400e; max-width: 58%; text-align: right; line-height: 1.35; }
     .fkt-supplier { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
     .fkt-row-bot { display: flex; justify-content: space-between; align-items: center; }
     .fkt-total { font-size: 15px; font-weight: 800; color: var(--text); }
@@ -310,6 +312,7 @@
     .a4-status-badge.tempo { background: #fef3c7; color: #92400e; }
     .a4-status-badge.overdue { background: #fee2e2; color: #991b1b; }
     .a4-status-badge.cicil { background: #ffedd5; color: #9a3412; }
+    .a4-status-badge.retur { background: #fef3c7; color: #92400e; }
     .a4-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
     .a4-meta-box { background: #f8fafc; border-radius: 6px; padding: 10px 12px; }
     .a4-meta-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-bottom: 4px; }
@@ -324,6 +327,14 @@
     .a4-table td { padding: 7px 8px; color: #1e293b; }
     .a4-table td.right { text-align: right; font-family: monospace; }
     .a4-table td.center { text-align: center; }
+    .a4-return-section { margin: 0 0 14px; padding: 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; page-break-inside: avoid; }
+    .a4-return-title { margin: 0 0 8px; color: #92400e; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .a4-return-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
+    .a4-return-table th { padding: 6px 5px; background: #92400e; color: #fff; text-align: left; vertical-align: middle; line-height: 1.25; }
+    .a4-return-table td { padding: 6px 5px; border-bottom: 1px solid #fde68a; color: #334155; vertical-align: top; line-height: 1.35; overflow-wrap: break-word; word-break: normal; }
+    .a4-return-table tfoot td { background: #fef3c7; border-top: 1px solid #d97706; font-weight: 800; }
+    .a4-return-muted { color: #64748b; font-size: 8px; }
+    .a4-return-nowrap { white-space: nowrap; }
     .a4-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .a4-summary-left { display: flex; flex-direction: column; gap: 8px; }
     .a4-note-box { background: #f8fafc; border-radius: 6px; padding: 8px 10px; font-size: 10px; color: #475569; }
@@ -339,6 +350,7 @@
     .a4-grand-val { font-size: 16px; font-weight: 900; color: #4ade80; font-family: monospace; }
     .a4-watermark { position: absolute; right: 20px; top: 80px; transform: rotate(-12deg); pointer-events: none; opacity: .85; }
     .a4-watermark-inner { padding: 5px 16px; border: 2px solid #059669; border-radius: 6px; color: #059669; font-size: 20px; font-weight: 900; letter-spacing: 4px; }
+    .a4-watermark-inner.retur { border-color: #d97706; color: #d97706; }
     .a4-sig-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
     .a4-sig-box { text-align: center; font-size: 10px; color: #475569; }
     .a4-sig-box .role { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin-bottom: 24px; }
@@ -953,6 +965,7 @@ body.role-admin .admin-only{display:block!important}
 .admin-pill{display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:700;background:#E8F1FA;color:#245B91;border:1px solid #BFD8F0}
 .admin-pill.success{background:#ECFDF5;color:#047857;border-color:#A7F3D0}
 .admin-pill.warn{background:#FFFBEB;color:#B45309;border-color:#FDE68A}
+.admin-pill.retur{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
 .admin-pill.danger{background:#FEF2F2;color:#B91C1C;border-color:#FECACA}
 .admin-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .admin-field{display:flex;flex-direction:column;gap:5px}.admin-field.full{grid-column:1/-1}
@@ -1397,6 +1410,7 @@ body.role-admin .admin-only{display:block!important}
           <option value="tempo">Tempo</option>
           <option value="overdue">Jatuh Tempo</option>
           <option value="cicil">Dicicil</option>
+          <option value="retur">Retur</option>
         </select>
         <button class="fkt-btn-new" onclick="openNewPoModal()">+ PO Baru</button>
       </div>
@@ -1418,7 +1432,7 @@ body.role-admin .admin-only{display:block!important}
     <div id="tab-admin-pembelian" class="admin-page">
       <div class="admin-head"><div><div class="admin-title">🧾 Faktur/PO</div><div class="admin-sub">Riwayat PO, input faktur, supplier, pelunasan tempo, cetak, dan retur supplier.</div></div><button class="admin-btn primary" onclick="openAdminPurchaseForm()">+ PO Baru</button></div>
       <div class="admin-grid" id="admin-purchase-kpi"></div>
-      <div class="admin-toolbar"><input id="admin-purchase-q" class="admin-field-input" placeholder="🔍 Cari No PO / Faktur / Supplier..." oninput="renderAdminPurchases()"><select id="admin-purchase-status" class="admin-field-input" onchange="renderAdminPurchases()"><option value="">Semua Status</option><option value="lunas">Lunas</option><option value="tempo">Tempo</option><option value="cicil">Cicil</option></select><button class="admin-btn" onclick="loadAdminPurchases()">↻ Refresh</button></div>
+      <div class="admin-toolbar"><input id="admin-purchase-q" class="admin-field-input" placeholder="🔍 Cari No PO / Faktur / Supplier..." oninput="renderAdminPurchases()"><select id="admin-purchase-status" class="admin-field-input" onchange="renderAdminPurchases()"><option value="">Semua Status</option><option value="lunas">Lunas</option><option value="tempo">Tempo</option><option value="cicil">Cicil</option><option value="retur">Retur</option></select><button class="admin-btn" onclick="loadAdminPurchases()">↻ Refresh</button></div>
       <div class="admin-section"><div class="admin-section-title">Riwayat Pembelian</div><div id="admin-purchase-list" class="admin-list"><div class="admin-card">⏳ Memuat...</div></div></div>
       <div class="admin-section"><div class="admin-section-title">Master Supplier</div><div class="admin-toolbar"><input id="admin-sup-q" class="admin-field-input" placeholder="🔍 Cari nama/kontak/NPWP..." oninput="renderAdminSuppliers()"><button class="admin-btn primary" onclick="openSupplierForm()">+ Tambah Supplier</button></div><div id="admin-supplier-list" class="admin-list"><div class="admin-card">⏳ Memuat supplier...</div></div></div>
     </div>
@@ -1699,6 +1713,7 @@ let stokAll = [];
 /* ══════════ UTILS ══════════ */
 const fmt = n => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
 const fmtDate = d => new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
 function toast(msg, type='') {
   const el = document.getElementById('toast');
@@ -2287,6 +2302,7 @@ async function loadFaktur() {
 
 function getStatusClass(po) {
   if (!po) return 'tempo';
+  if ((po.retur || []).length) return 'retur';
   const s = (po.status_bayar || '').toLowerCase();
   if (s === 'lunas') return 'lunas';
   if (s === 'cicil') return 'cicil';
@@ -2299,6 +2315,53 @@ function getStatusClass(po) {
 }
 
 const STATUS_LABEL = { lunas:'✅ Lunas', tempo:'⏳ Tempo', overdue:'🔴 Jatuh Tempo', cicil:'💳 Dicicil' };
+const RETURN_METHOD_LABEL = { potong_hutang:'Potong hutang/tagihan tempo', refund_cash:'Refund cash/transfer' };
+function getPurchaseStatusLabel(po) {
+  if ((po?.retur || []).length) {
+    const methods = [...new Set(po.retur.map(r => RETURN_METHOD_LABEL[r.metode_kembali] || String(r.metode_kembali || 'Retur').replaceAll('_',' ')))];
+    return `↩️ Retur - ${methods.join(' + ')}`;
+  }
+  return STATUS_LABEL[getStatusClass(po)] || getStatusClass(po);
+}
+
+function getPurchaseReturnRows(po) {
+  const rows = [];
+  (po?.retur || []).forEach(ret => {
+    const date = ret.tanggal ? new Date(ret.tanggal) : null;
+    const dateText = date && !Number.isNaN(date.getTime())
+      ? date.toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})
+      : '—';
+    const timeText = date && !Number.isNaN(date.getTime())
+      ? date.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',hour12:false})
+      : '';
+    const method = RETURN_METHOD_LABEL[ret.metode_kembali] || String(ret.metode_kembali || 'Tidak diketahui').replaceAll('_',' ');
+    (ret.detail || []).forEach(item => {
+      const nominal = Number(item.subtotal || ((item.qty || 0) * (item.harga_beli || 0)));
+      rows.push({dateText,timeText,noRetur:ret.no_retur || '—',item,nominal,method,reason:ret.alasan || '—'});
+    });
+  });
+  return rows;
+}
+
+function renderPurchaseReturnSection(po) {
+  const rows = getPurchaseReturnRows(po);
+  if (!rows.length) return '';
+  const total = rows.reduce((sum, row) => sum + row.nominal, 0);
+  return `<section class="a4-return-section">
+    <h3 class="a4-return-title">Rincian Retur ke Supplier</h3>
+    <table class="a4-return-table">
+      <colgroup><col style="width:18%"><col style="width:28%"><col style="width:7%"><col style="width:14%"><col style="width:16%"><col style="width:17%"></colgroup>
+      <thead><tr><th>Tanggal / No. Retur</th><th>Barang / Kode</th><th>Qty</th><th>Nominal</th><th>Metode</th><th>Alasan</th></tr></thead>
+      <tbody>${rows.map(row => `<tr>
+        <td><strong class="a4-return-nowrap">${escapeHtml(row.dateText)}</strong><br><span class="a4-return-muted a4-return-nowrap">${escapeHtml(row.timeText)}</span><br><span class="a4-return-muted">${escapeHtml(row.noRetur)}</span></td>
+        <td><strong>${escapeHtml(row.item.nama_barang || '—')}</strong><br><span class="a4-return-muted">Kode: ${escapeHtml(row.item.kode_barang || '—')}</span></td>
+        <td style="text-align:center">${Number(row.item.qty || 0)}</td><td class="a4-return-nowrap" style="text-align:right">${fmt(row.nominal)}</td>
+        <td>${escapeHtml(row.method)}</td><td>${escapeHtml(row.reason)}</td>
+      </tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3" style="text-align:right">Total Nilai Retur</td><td class="a4-return-nowrap" style="text-align:right">${fmt(total)}</td><td colspan="2"></td></tr></tfoot>
+    </table>
+  </section>`;
+}
 
 function renderFakturList() {
   const q = (document.getElementById('fkt-q')?.value || '').toLowerCase().trim();
@@ -2317,7 +2380,7 @@ function renderFakturList() {
   }
   el.innerHTML = list.map(po => {
     const sc = getStatusClass(po);
-    const badgeTxt = STATUS_LABEL[sc] || sc;
+    const badgeTxt = escapeHtml(getPurchaseStatusLabel(po));
     const dpp = fmt(po.dpp || po.subtotal || 0);
     const ttl = fmt(po.total || 0);
     const ppn = fmt(po.ppn_nominal || 0);
@@ -2327,6 +2390,7 @@ function renderFakturList() {
         <div class="fkt-badge ${sc}">${badgeTxt}</div>
       </div>
       <div class="fkt-supplier">🏪 ${po.supplier?.nama || '—'} &nbsp;|&nbsp; Ref: ${po.no_faktur || '—'}</div>
+      ${(po.retur||[]).length?`<div class="fkt-date" style="color:#b45309">Retur: ${(po.retur||[]).map(r=>escapeHtml(r.alasan||'Tanpa alasan')).join(' · ')}</div>`:''}
       <div class="fkt-row-bot">
         <div><div class="fkt-total">${ttl}</div><div class="fkt-date">Dibayar ${fmt(po.sudah_dibayar||0)} - Sisa ${fmt(po.sisa_tagihan??Math.max(0,(po.total||0)-(po.sudah_dibayar||0)))}</div>${po.tanggal_jatuh_tempo?`<div class="fkt-date">Jatuh tempo ${new Date(po.tanggal_jatuh_tempo).toLocaleDateString('id-ID')}</div>`:''}</div>
         <div style="display:flex;gap:6px;align-items:center;">
@@ -2334,7 +2398,7 @@ function renderFakturList() {
           <span class="fkt-date">${po.tanggal ? new Date(po.tanggal).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : ''}</span>
         </div>
       </div>
-      ${me?.role==='admin'&&po.status_bayar!=='lunas'?`<button class="fkt-act-btn primary fkt-pay-action" onclick="event.stopPropagation();openPurchasePayment(${po.id})">Catat Cicilan</button>`:''}
+      ${me?.role==='admin'&&po.status_bayar!=='lunas'&&Number(po.sisa_tagihan??Math.max(0,(po.total||0)-(po.sudah_dibayar||0)))>0?`<button class="fkt-act-btn primary fkt-pay-action" onclick="event.stopPropagation();openPurchasePayment(${po.id})">Catat Cicilan</button>`:''}
     </div>`;
   }).join('');
 }
@@ -2354,7 +2418,7 @@ function renderA4(po) {
   if (!po) return;
   const st=window.appSettings||{}; const storeName=st.store_name||'Toko Kami'; const storePhone=st.store_phone||''; const storeAddress=st.store_address||''; const storeNpwp=st.tax_npwp||'';
   const sc = getStatusClass(po);
-  const watermarkTxt = sc === 'lunas' ? 'LUNAS' : sc === 'overdue' ? 'TEMPO' : 'TEMPO';
+  const watermarkTxt = sc === 'lunas' ? 'LUNAS' : sc === 'retur' ? 'RETUR' : 'TEMPO';
   const details = (po.detail || po.items || []);
   const itemRows = details.map((d,i) => `
     <tr>
@@ -2369,9 +2433,11 @@ function renderA4(po) {
   const dpp = po.dpp || po.subtotal || 0;
   const ppn = po.ppn_nominal || 0;
   const total = po.total || 0;
+  const statusLabel = getPurchaseStatusLabel(po);
+  const returnSection = renderPurchaseReturnSection(po);
   document.getElementById('fkt-modal-title-text').textContent = `Faktur: ${po.no_po || po.no_faktur}`;
   document.getElementById('a4-body').innerHTML = `
-    ${sc==='lunas' ? '<div class="a4-watermark"><div class="a4-watermark-inner">LUNAS</div></div>' : ''}
+    ${sc==='lunas' || sc==='retur' ? `<div class="a4-watermark"><div class="a4-watermark-inner ${sc}">${sc==='retur'?'RETUR':'LUNAS'}</div></div>` : ''}
     <div class="a4-letterhead">
       <div class="a4-company">
         <div class="a4-logo">
@@ -2385,7 +2451,7 @@ function renderA4(po) {
       <div class="a4-doc-title">
         <h2>Faktur Pembelian</h2>
         <div class="a4-doc-num">NO: ${po.no_po || po.no_faktur || '—'}</div>
-        <div class="a4-status-badge ${sc}">${STATUS_LABEL[sc]||sc}</div>
+        <div class="a4-status-badge ${sc}">${escapeHtml(statusLabel)}</div>
       </div>
     </div>
     <div class="a4-meta-grid">
@@ -2399,7 +2465,7 @@ function renderA4(po) {
         <div class="a4-meta-lbl">Informasi Transaksi</div>
         <div class="a4-meta-sub">Tanggal: <strong>${po.tanggal ? new Date(po.tanggal).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : '—'}</strong></div>
         <div class="a4-meta-sub">Jatuh Tempo: <strong>${po.tanggal_jatuh_tempo ? new Date(po.tanggal_jatuh_tempo).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}) : '—'}</strong></div>
-        <div class="a4-meta-sub">Status: <strong>${STATUS_LABEL[sc]||sc}</strong></div>
+        <div class="a4-meta-sub">Status: <strong>${escapeHtml(statusLabel)}</strong></div>
       </div>
     </div>
     <section class="a4-table" style="overflow-x:auto;">
@@ -2416,6 +2482,7 @@ function renderA4(po) {
         <tbody>${itemRows || '<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:14px;">Tidak ada detail barang</td></tr>'}</tbody>
       </table>
     </section>
+    ${returnSection}
     <div class="a4-summary">
       <div class="a4-summary-left">
         <div class="a4-note-box">
@@ -2556,7 +2623,41 @@ async function deleteUser(id){if(!confirm('Yakin ingin MENGHAPUS PERMANEN user i
 
 let adminSuppliers=[], adminPurchases=[];
 async function loadAdminPurchases(){const el=document.getElementById('admin-purchase-list');if(!el)return;el.innerHTML='<div class="admin-card">⏳ Memuat...</div>';try{adminPurchases=await api('GET','/api/pembelian?limit=200');const total=adminPurchases.reduce((s,x)=>s+x.total,0),tempo=adminPurchases.reduce((s,x)=>s+(x.sisa_tagihan??Math.max(0,x.total-(x.sudah_dibayar||0))),0),terbayar=adminPurchases.reduce((s,x)=>s+(x.sudah_dibayar||0),0);document.getElementById('admin-purchase-kpi').innerHTML=`<div class="admin-card"><div class="admin-muted">Total PO</div><div class="admin-kpi">${adminPurchases.length}</div></div><div class="admin-card"><div class="admin-muted">Nilai Pembelian</div><div class="admin-kpi">${fmt(total)}</div></div><div class="admin-card"><div class="admin-muted">Tempo</div><div class="admin-kpi">${fmt(tempo)}</div></div><div class="admin-card"><div class="admin-muted">Sudah Dibayar</div><div class="admin-kpi">${fmt(terbayar)}</div></div>`;renderAdminPurchases()}catch(e){el.innerHTML=`<div class="admin-card">❌ ${e.message}</div>`}}
-function renderAdminPurchases(){const el=document.getElementById('admin-purchase-list');if(!el)return;const q=(document.getElementById('admin-purchase-q')?.value||'').toLowerCase().trim(),st=document.getElementById('admin-purchase-status')?.value||'';const rows=adminPurchases.filter(p=>(!q||`${p.no_po} ${p.no_faktur||''} ${p.supplier?.nama||''}`.toLowerCase().includes(q))&&(!st||p.status_bayar===st));el.innerHTML=rows.map(p=>`<div class="admin-row"><div class="admin-row-top"><div onclick="openFakturPreview(${p.id})"><div class="admin-row-title">🧾 ${p.no_po}</div><div class="admin-row-meta">${p.supplier?.nama||'Umum'} · Faktur ${p.no_faktur||'-'}<br>${p.tanggal?new Date(p.tanggal).toLocaleDateString('id-ID'):''} · <b>${fmt(p.total)}</b><br>Dibayar ${fmt(p.sudah_dibayar||0)} | Sisa ${fmt(p.sisa_tagihan??Math.max(0,p.total-(p.sudah_dibayar||0)))}${p.tanggal_jatuh_tempo?`<br>Jatuh tempo ${new Date(p.tanggal_jatuh_tempo).toLocaleDateString('id-ID')}`:''}</div></div><span class="admin-pill ${p.status_bayar==='lunas'?'success':'warn'}">${p.status_bayar}</span></div><div class="admin-row-actions"><button class="admin-btn" onclick="openFakturPreview(${p.id})">👁 Detail</button><button class="admin-btn" onclick="printPurchase(${p.id})">🖨 Cetak</button>${p.status_bayar!=='lunas'?`<button class="admin-btn success" onclick="openPurchasePayment(${p.id})">Catat Cicilan</button>`:''}<button class="admin-btn danger" onclick="openPurchaseReturn(${p.id})">↩️ Retur Supplier</button></div></div>`).join('')||'<div class="admin-card">Tidak ada pembelian yang sesuai filter.</div>'}
+function renderAdminPurchases(){
+  const el=document.getElementById('admin-purchase-list');
+  if(!el)return;
+  const q=(document.getElementById('admin-purchase-q')?.value||'').toLowerCase().trim();
+  const st=document.getElementById('admin-purchase-status')?.value||'';
+  const rows=adminPurchases.filter(p=>
+    (!q||`${p.no_po} ${p.no_faktur||''} ${p.supplier?.nama||''}`.toLowerCase().includes(q))&&
+    (!st||(st==='tempo'?['tempo','overdue'].includes(getStatusClass(p)):getStatusClass(p)===st))
+  );
+  el.innerHTML=rows.map(p=>{
+    const statusClass=getStatusClass(p);
+    const statusLabel=getPurchaseStatusLabel(p);
+    const returnReasons=(p.retur||[]).map(r=>escapeHtml(r.alasan||'Tanpa alasan')).join(' · ');
+    return `<div class="admin-row">
+      <div class="admin-row-top">
+        <div onclick="openFakturPreview(${p.id})">
+          <div class="admin-row-title">🧾 ${escapeHtml(p.no_po)}</div>
+          <div class="admin-row-meta">${escapeHtml(p.supplier?.nama||'Umum')} · Faktur ${escapeHtml(p.no_faktur||'-')}<br>
+            ${p.tanggal?new Date(p.tanggal).toLocaleDateString('id-ID'):''} · <b>${fmt(p.total)}</b><br>
+            Dibayar ${fmt(p.sudah_dibayar||0)} | Sisa ${fmt(p.sisa_tagihan??Math.max(0,p.total-(p.sudah_dibayar||0)))}
+            ${p.tanggal_jatuh_tempo?`<br>Jatuh tempo ${new Date(p.tanggal_jatuh_tempo).toLocaleDateString('id-ID')}`:''}
+            ${returnReasons?`<br><span style="color:#b45309">Retur: ${returnReasons}</span>`:''}
+          </div>
+        </div>
+        <span class="admin-pill ${statusClass==='lunas'?'success':statusClass==='retur'?'retur':'warn'}">${escapeHtml(statusLabel)}</span>
+      </div>
+      <div class="admin-row-actions">
+        <button class="admin-btn" onclick="openFakturPreview(${p.id})">👁 Detail</button>
+        <button class="admin-btn" onclick="printPurchase(${p.id})">🖨 Cetak</button>
+        ${p.status_bayar!=='lunas'&&Number(p.sisa_tagihan??Math.max(0,p.total-(p.sudah_dibayar||0)))>0?`<button class="admin-btn success" onclick="openPurchasePayment(${p.id})">Catat Cicilan</button>`:''}
+        <button class="admin-btn danger" onclick="openPurchaseReturn(${p.id})">↩️ Retur Supplier</button>
+      </div>
+    </div>`;
+  }).join('')||'<div class="admin-card">Tidak ada pembelian yang sesuai filter.</div>';
+}
 async function loadAdminSuppliers(){const el=document.getElementById('admin-supplier-list');if(!el)return;try{adminSuppliers=await api('GET','/api/admin/suppliers');renderAdminSuppliers()}catch(e){el.innerHTML=`<div class="admin-card">❌ ${e.message}</div>`}}
 function renderAdminSuppliers(){const q=(document.getElementById('admin-sup-q')?.value||'').toLowerCase().trim();const el=document.getElementById('admin-supplier-list');if(!el)return;const rows=adminSuppliers.filter(x=>!q||`${x.nama} ${x.kontak||''} ${x.npwp||''}`.toLowerCase().includes(q));el.innerHTML=rows.map(x=>`<div class="admin-row"><div class="admin-row-title">🏪 ${x.nama}</div><div class="admin-row-meta">${x.kode} · ${x.kontak||'-'} · ${x.telepon||'-'}<br>NPWP: ${x.npwp||'-'}<br>${x.alamat||'-'}</div><div class="admin-row-actions"><button class="admin-btn" onclick='openSupplierForm(${JSON.stringify(x)})'>✏️ Edit</button></div></div>`).join('')||'<div class="admin-card">Belum ada supplier.</div>'}
 function openSupplierForm(x=null){document.getElementById('admin-form-title').textContent=x?'✏️ Edit Supplier':'➕ Tambah Supplier';document.getElementById('admin-form-body').innerHTML=`<div class="admin-form"><div class="admin-field"><label>Kode</label><input id="sf-kode" value="${x?.kode||''}" ${x?'readonly':''}></div><div class="admin-field"><label>Nama Supplier</label><input id="sf-nama" value="${x?.nama||''}"></div><div class="admin-field"><label>Kontak Person</label><input id="sf-kontak" value="${x?.kontak||''}"></div><div class="admin-field"><label>Telepon</label><input id="sf-telepon" value="${x?.telepon||''}"></div><div class="admin-field"><label>NPWP</label><input id="sf-npwp" value="${x?.npwp||''}"></div><div class="admin-field full"><label>Alamat</label><textarea id="sf-alamat">${x?.alamat||''}</textarea></div></div><div class="admin-actions"><button class="admin-btn" onclick="closeAdminForm()">Batal</button><button class="admin-btn primary" onclick="saveSupplierForm(${x?.id||0})">💾 Simpan</button></div>`;document.getElementById('admin-form-modal').classList.add('show')}

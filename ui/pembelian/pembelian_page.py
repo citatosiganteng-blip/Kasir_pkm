@@ -20,7 +20,7 @@ from database.models import Supplier, Pembelian, PembelianDetail, Barang, Cicila
 from auth.auth_manager import auth
 from utils.helpers import (
     format_rupiah, format_tanggal, format_datetime,
-    generate_po_number, generate_supplier_code
+    generate_po_number, generate_supplier_code, get_pembelian_status_display
 )
 from services.invoice_pdf_service import InvoicePdfService
 from ui.pembelian.retur_pembelian_dialog import ReturPembelianDialog
@@ -220,7 +220,7 @@ class PembelianPage(QWidget):
         filter_row.addWidget(self.search_po_input, 2)
 
         self.filter_status_combo = ThemedComboBox()
-        self.filter_status_combo.addItems(["Semua Status", "Lunas", "Tempo", "Cicil"])
+        self.filter_status_combo.addItems(["Semua Status", "Lunas", "Tempo", "Cicil", "Retur"])
         self.filter_status_combo.setFixedHeight(36)
         self.filter_status_combo.currentIndexChanged.connect(self._filter_pembelian_table)
         filter_row.addWidget(self.filter_status_combo, 1)
@@ -235,13 +235,14 @@ class PembelianPage(QWidget):
 
         # Table
         self.po_table = QTableWidget()
-        self.po_table.setColumnCount(8)
+        self.po_table.setColumnCount(9)
         self.po_table.setHorizontalHeaderLabels([
-            "No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Total DPP", "PPN Masukan", "Total Akhir", "Status Bayar"
+            "No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Total DPP", "PPN Masukan", "Total Akhir", "Status Bayar", "Keterangan Retur"
         ])
         self.po_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.po_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.po_table.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeToContents)
+        self.po_table.horizontalHeader().setSectionResizeMode(8, QHeaderView.Stretch)
         self.po_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.po_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.po_table.verticalHeader().setVisible(False)
@@ -853,11 +854,13 @@ class PembelianPage(QWidget):
 
             matches_st = True
             if filter_st == "lunas":
-                matches_st = (p.status_bayar == "lunas")
+                matches_st = (p.status_bayar == "lunas" and not p.retur)
             elif filter_st == "tempo":
-                matches_st = (p.status_bayar == "tempo")
+                matches_st = (p.status_bayar == "tempo" and not p.retur)
             elif filter_st == "cicil":
-                matches_st = (p.status_bayar == "cicil")
+                matches_st = (p.status_bayar == "cicil" and not p.retur)
+            elif filter_st == "retur":
+                matches_st = bool(p.retur)
 
             if matches_q and matches_st:
                 filtered.append(p)
@@ -868,8 +871,7 @@ class PembelianPage(QWidget):
         for i, p in enumerate(filtered):
             self.po_table.setRowHeight(i, 44)
             sup_name = p.supplier.nama if p.supplier else "Umum"
-            outstanding = max(0, (p.total or 0) - (p.sudah_dibayar or 0))
-            st_text = "LUNAS" if p.status_bayar == "lunas" else (f"CICIL · sisa {format_rupiah(outstanding)}" if p.status_bayar == "cicil" else "TEMPO (HUTANG)")
+            st_text, retur_note = get_pembelian_status_display(p)
 
             self.po_table.setItem(i, 0, QTableWidgetItem(p.no_po))
             self.po_table.setItem(i, 1, QTableWidgetItem(p.no_faktur))
@@ -880,11 +882,20 @@ class PembelianPage(QWidget):
             self.po_table.setItem(i, 6, QTableWidgetItem(format_rupiah(p.total)))
 
             st_item = QTableWidgetItem(st_text)
-            if p.status_bayar != "lunas":
+            if p.retur:
+                st_item.setForeground(QColor("#92400E"))
+                st_item.setBackground(QColor("#FEF3C7"))
+            elif p.status_bayar != "lunas":
                 st_item.setForeground(QColor("#EF4444"))
             else:
                 st_item.setForeground(QColor("#10B981"))
             self.po_table.setItem(i, 7, st_item)
+            retur_item = QTableWidgetItem(retur_note or "-")
+            if retur_note:
+                retur_item.setForeground(QColor("#92400E"))
+                retur_item.setBackground(QColor("#FEF3C7"))
+                retur_item.setToolTip(retur_note)
+            self.po_table.setItem(i, 8, retur_item)
 
     def _cetak_selected_po(self):
         row = self.po_table.currentRow()

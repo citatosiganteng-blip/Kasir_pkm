@@ -16,7 +16,12 @@ def _out(p, include_detail=False):
        "total":p.total,"sudah_dibayar":p.sudah_dibayar or 0,"sisa_tagihan":max(0,(p.total or 0)-(p.sudah_dibayar or 0)),
        "status_bayar":p.status_bayar,"status_barang":p.status_barang,"metode_bayar":p.metode_bayar,"catatan":p.catatan,
        "cicilan":[{"id":c.id,"ke":c.ke,"nominal":c.nominal,"jatuh_tempo":c.jatuh_tempo.isoformat() if c.jatuh_tempo else None,
-                   "tanggal_bayar":c.tanggal_bayar.isoformat() if c.tanggal_bayar else None,"status":c.status,"catatan":c.catatan} for c in p.cicilan]}
+                   "tanggal_bayar":c.tanggal_bayar.isoformat() if c.tanggal_bayar else None,"status":c.status,"catatan":c.catatan} for c in p.cicilan],
+       "retur":[{"id":r.id,"no_retur":r.no_retur,"tanggal":r.tanggal.isoformat() if r.tanggal else None,
+                 "total_retur":r.total_retur,"alasan":r.alasan,"metode_kembali":r.metode_kembali,
+                 "detail":[{"id":x.id,"barang_id":x.barang_id,"kode_barang":x.kode_barang,
+                            "nama_barang":x.nama_barang,"qty":x.qty,"harga_beli":x.harga_beli,
+                            "subtotal":x.subtotal} for x in r.detail]} for r in p.retur]}
     if include_detail:
         d['detail']=[{"id":x.id,"barang_id":x.barang_id,"kode_barang":x.kode_barang,"nama_barang":x.nama_barang,"qty":x.qty,"harga_beli":x.harga_beli,"subtotal":x.subtotal} for x in p.detail]
     return d

@@ -5,15 +5,18 @@ and Perpajakan (PPN/PPh & Rekapitulasi).
 
 import os
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 import pytest
 from openpyxl import load_workbook
 
 from database.models import Barang, Transaksi, TransaksiDetail, Supplier, Pelanggan, Pembelian, PembelianDetail
 from utils.helpers import (
     terbilang, generate_po_number, generate_supplier_code,
-    generate_customer_code, generate_tax_invoice_number
+    generate_customer_code, generate_tax_invoice_number,
+    get_pembelian_status_display, apply_potong_hutang_retur
 )
 from services.invoice_pdf_service import InvoicePdfService
+from api.routers.pembelian import _out as pembelian_api_out
 
 
 def test_terbilang_conversion():
@@ -39,6 +42,155 @@ def test_code_generators(test_db):
 
         fp_num = generate_tax_invoice_number(session)
         assert fp_num.startswith("FP-")
+
+
+def test_purchase_status_display_includes_return_method_and_reason():
+    retur = SimpleNamespace(
+        no_retur="RB-20261015-001",
+        alasan="Barang rusak",
+        metode_kembali="potong_hutang",
+    )
+    pembelian = SimpleNamespace(
+        status_bayar="lunas",
+        total=50000,
+        sudah_dibayar=50000,
+        retur=[retur],
+    )
+
+    status, note = get_pembelian_status_display(pembelian)
+
+    assert status == "RETUR - POTONG HUTANG/TAGIHAN"
+    assert "RB-20261015-001 - Barang rusak" in note
+
+
+def test_purchase_return_deduction_preserves_payment_history():
+    pembelian = SimpleNamespace(status_bayar="cicil", total=50000, sudah_dibayar=30000)
+
+    apply_potong_hutang_retur(pembelian, 25000)
+
+    assert pembelian.total == 25000
+    assert pembelian.status_bayar == "cicil"
+    assert pembelian.sudah_dibayar == 30000
+
+
+def test_purchase_invoice_html_shows_return_status_and_full_return_details():
+    return_detail = SimpleNamespace(
+        subtotal=25000,
+        qty=2,
+        harga_beli=12500,
+        kode_barang="BRG-RET-01",
+        nama_barang="Barang Retur",
+    )
+    purchase_return = SimpleNamespace(
+        metode_kembali="refund_cash",
+        tanggal=datetime(2026, 10, 15, 10, 30),
+        alasan="Barang rusak",
+        no_retur="RB-20261015-001",
+        detail=[return_detail],
+    )
+    purchase = SimpleNamespace(
+        supplier=None,
+        tanggal=datetime(2026, 10, 15, 9, 0),
+        jatuh_tempo=None,
+        status_bayar="lunas",
+        retur=[purchase_return],
+        detail=[],
+        user=None,
+        total=100000,
+        sudah_dibayar=100000,
+        cicilan=[],
+        no_po="PO-TEST-RET-01",
+        no_faktur="INV-RET-01",
+        metode_bayar="transfer",
+        catatan="",
+        dpp=100000,
+        subtotal=100000,
+        ppn_nominal=0,
+        ppn_persen=0,
+        pph_nominal=0,
+        pph_persen=0,
+    )
+    store_info = {
+        "name": "Toko Uji",
+        "address": "Alamat Uji",
+        "phone": "08123456789",
+        "npwp": "-",
+        "is_pkp": False,
+        "bank_name": "BCA",
+        "bank_account": "-",
+        "bank_holder": "-",
+    }
+
+    html = InvoicePdfService.generate_purchase_order_html(purchase, store_info)
+
+    assert "RETUR - REFUND CASH/TRANSFER" in html
+    assert "RINCIAN RETUR KE SUPPLIER" in html
+    assert "15 Oktober 2026" in html
+    assert "10:30" in html
+    assert "Tanggal / No. Retur" in html
+    assert "table-layout: fixed" in html
+    assert "BRG-RET-01" in html
+    assert "Barang Retur" in html
+    assert "2" in html
+    assert "Rp 25.000" in html
+    assert "Refund cash/transfer" in html
+    assert "Barang rusak" in html
+    assert ">LUNAS</span>" not in html
+
+
+def test_mobile_purchase_api_includes_return_details():
+    return_detail = SimpleNamespace(
+        id=11,
+        barang_id=7,
+        kode_barang="BRG-RET-01",
+        nama_barang="Barang Retur",
+        qty=2,
+        harga_beli=12500,
+        subtotal=25000,
+    )
+    purchase_return = SimpleNamespace(
+        id=5,
+        no_retur="RB-20261015-001",
+        tanggal=datetime(2026, 10, 15, 10, 30),
+        total_retur=25000,
+        alasan="Barang rusak",
+        metode_kembali="refund_cash",
+        detail=[return_detail],
+    )
+    purchase = SimpleNamespace(
+        id=3,
+        no_po="PO-TEST-RET-01",
+        no_faktur="INV-RET-01",
+        tanggal=datetime(2026, 10, 15, 9),
+        jatuh_tempo=None,
+        supplier_id=2,
+        supplier=SimpleNamespace(id=2, kode="SUP02", nama="Supplier Uji", npwp=None),
+        subtotal=100000,
+        dpp=100000,
+        ppn_persen=0,
+        ppn_nominal=0,
+        pph_persen=0,
+        pph_nominal=0,
+        total=100000,
+        sudah_dibayar=100000,
+        status_bayar="lunas",
+        status_barang="diterima",
+        metode_bayar="transfer",
+        catatan=None,
+        cicilan=[],
+        retur=[purchase_return],
+        detail=[],
+    )
+
+    output = pembelian_api_out(purchase)
+
+    assert output["retur"][0]["no_retur"] == "RB-20261015-001"
+    assert output["retur"][0]["tanggal"] == "2026-10-15T10:30:00"
+    assert output["retur"][0]["metode_kembali"] == "refund_cash"
+    assert output["retur"][0]["alasan"] == "Barang rusak"
+    assert output["retur"][0]["detail"][0]["kode_barang"] == "BRG-RET-01"
+    assert output["retur"][0]["detail"][0]["qty"] == 2
+    assert output["retur"][0]["detail"][0]["subtotal"] == 25000
 
 
 def test_pembelian_and_auto_stock_increment(test_db):

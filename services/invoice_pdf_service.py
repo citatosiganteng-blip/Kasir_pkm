@@ -8,12 +8,16 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
+from html import escape as html_escape
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 from database.db import db
 from database.models import Transaksi, Pembelian, ReturPenjualan, ReturPembelian
-from utils.helpers import format_rupiah, format_tanggal, format_datetime, terbilang
+from utils.helpers import (
+    format_rupiah, format_tanggal, format_datetime, terbilang,
+    get_pembelian_status_display,
+)
 import config
 
 
@@ -307,10 +311,16 @@ class InvoicePdfService:
         tgl_po = format_datetime(pembelian.tanggal)
         jatuh_tempo_str = format_tanggal(pembelian.jatuh_tempo) if pembelian.jatuh_tempo else "Tunai / Cash"
 
-        is_lunas = pembelian.status_bayar == "lunas"
+        has_returns = bool(getattr(pembelian, "retur", None))
+        status_text, _ = get_pembelian_status_display(pembelian)
+        is_lunas = pembelian.status_bayar == "lunas" and not has_returns
         is_cicil = pembelian.status_bayar == "cicil"
-        status_color = "#047857" if is_lunas else ("#B45309" if is_cicil else "#DC2626")
-        status_text  = "LUNAS" if is_lunas else ("CICILAN" if is_cicil else "TEMPO / HUTANG")
+        status_color = (
+            "#D97706" if has_returns else
+            ("#047857" if is_lunas else ("#B45309" if is_cicil else "#DC2626"))
+        )
+        if not has_returns:
+            status_text = "LUNAS" if is_lunas else ("CICILAN" if is_cicil else "TEMPO / HUTANG")
         status_badge = f'<span style="background-color: {status_color}; color: #ffffff; padding: 3px 10px; border-radius: 4px; font-weight: bold; font-size: 8.5pt;">{status_text}</span>'
 
         item_rows = []
@@ -328,6 +338,67 @@ class InvoicePdfService:
             </tr>
             """)
         items_html = "".join(item_rows)
+
+        retur_rows = []
+        metode_retur_labels = {
+            "potong_hutang": "Potong hutang/tagihan tempo",
+            "refund_cash": "Refund cash/transfer",
+        }
+        total_retur = 0.0
+        for retur in (getattr(pembelian, "retur", []) or []):
+            metode_label = metode_retur_labels.get(
+                retur.metode_kembali,
+                (retur.metode_kembali or "Tidak diketahui").replace("_", " ").capitalize(),
+            )
+            tanggal_retur = format_tanggal(retur.tanggal) if retur.tanggal else "-"
+            waktu_retur = retur.tanggal.strftime("%H:%M") if retur.tanggal else ""
+            alasan_retur = (retur.alasan or "").strip() or "-"
+            for detail in (getattr(retur, "detail", []) or []):
+                nominal = detail.subtotal or (detail.qty or 0) * (detail.harga_beli or 0)
+                total_retur += nominal
+                retur_rows.append(f"""
+                <tr>
+                    <td><b class="return-nowrap">{html_escape(tanggal_retur)}</b><br>
+                        <span class="return-muted return-nowrap">{html_escape(waktu_retur)}</span><br>
+                        <span class="return-muted">{html_escape(retur.no_retur or "-")}</span></td>
+                    <td><b>{html_escape(detail.nama_barang or "-")}</b><br>
+                        <span class="return-muted">Kode: {html_escape(detail.kode_barang or "-")}</span></td>
+                    <td align="center">{detail.qty or 0}</td>
+                    <td class="return-nowrap" align="right">{format_rupiah(nominal)}</td>
+                    <td>{html_escape(metode_label)}</td>
+                    <td>{html_escape(alasan_retur)}</td>
+                </tr>
+                """)
+
+        retur_section = ""
+        if retur_rows:
+            retur_section = f"""
+            <section class="return-section">
+                <h3>RINCIAN RETUR KE SUPPLIER</h3>
+                <table class="return-table" width="100%" cellpadding="0" cellspacing="0">
+                    <colgroup>
+                        <col width="18%"><col width="28%"><col width="7%">
+                        <col width="14%"><col width="16%"><col width="17%">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th align="left">Tanggal / No. Retur</th>
+                            <th align="left">Barang / Kode</th>
+                            <th align="center">Qty</th>
+                            <th align="right">Nominal</th>
+                            <th align="left">Metode</th>
+                            <th align="left">Alasan</th>
+                        </tr>
+                    </thead>
+                    <tbody>{''.join(retur_rows)}</tbody>
+                    <tfoot>
+                        <tr><td colspan="3" align="right"><b>Total Nilai Retur:</b></td>
+                            <td class="return-nowrap" align="right"><b>{format_rupiah(total_retur)}</b></td>
+                            <td colspan="2"></td></tr>
+                    </tfoot>
+                </table>
+            </section>
+            """
 
         user_name = "Administrator"
         if pembelian.user:
@@ -447,6 +518,55 @@ class InvoicePdfService:
         font-weight: bold;
         padding: 7px 5px;
         text-align: left;
+    }}
+    .return-section {{
+        margin: 14px 0;
+        padding: 8px;
+        background-color: #FFFBEB;
+        border: 1px solid #FDE68A;
+        border-radius: 6px;
+        page-break-inside: avoid;
+        width: 100%;
+        box-sizing: border-box;
+    }}
+    .return-section h3 {{
+        margin: 0 0 7px;
+        color: #92400E;
+        font-size: 10pt;
+    }}
+    .return-table {{
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 8pt;
+    }}
+    .return-table th {{
+        padding: 6px 5px;
+        color: #FFFFFF;
+        background: #92400E;
+        text-align: left;
+        vertical-align: middle;
+        line-height: 1.2;
+    }}
+    .return-table td {{
+        padding: 6px 5px;
+        border-bottom: 1px solid #FDE68A;
+        vertical-align: top;
+        line-height: 1.3;
+        overflow-wrap: break-word;
+        word-break: normal;
+    }}
+    .return-table tfoot td {{
+        border-top: 1px solid #D97706;
+        background: #FEF3C7;
+        padding: 7px 5px;
+    }}
+    .return-muted {{
+        color: #64748B;
+        font-size: 7.5pt;
+    }}
+    .return-nowrap {{
+        white-space: nowrap;
     }}
     .terbilang-box {{
         background-color: #ECFDF5;
@@ -579,6 +699,8 @@ class InvoicePdfService:
         {items_html}
     </tbody>
 </table>
+
+{retur_section}
 
 <!-- TOTAL & SUMMARY -->
 <table width="100%" cellpadding="0" cellspacing="0">

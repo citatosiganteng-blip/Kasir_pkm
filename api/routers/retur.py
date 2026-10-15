@@ -19,7 +19,8 @@ from database.models import (
 )
 from utils.helpers import (
     generate_retur_penjualan_number,
-    generate_retur_pembelian_number
+    generate_retur_pembelian_number,
+    apply_potong_hutang_retur,
 )
 from api.deps import get_current_user_payload, get_current_user_id, require_admin
 from api.schemas import (
@@ -345,11 +346,8 @@ def create_retur_pembelian(
                 if brg:
                     brg.stok = max(0, brg.stok - itm["qty"])
 
-        # Jika potong hutang dan status tempo, kurangi total tempo
-        if req.metode_kembali == "potong_hutang" and p.status_bayar == "tempo":
-            p.total = max(0.0, p.total - total_retur)
-            if p.total <= 0:
-                p.status_bayar = "lunas"
+        if req.metode_kembali == "potong_hutang":
+            apply_potong_hutang_retur(p, total_retur)
 
         session.flush()
         return _retur_pembelian_to_schema(retur_obj)

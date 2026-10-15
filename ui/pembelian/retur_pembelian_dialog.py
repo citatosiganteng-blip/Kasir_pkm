@@ -17,7 +17,10 @@ from PyQt5.QtGui import QFont, QColor, QCursor
 from database.db import db
 from database.models import Pembelian, ReturPembelian, ReturPembelianDetail, Barang
 from auth.auth_manager import auth
-from utils.helpers import format_rupiah, format_datetime, generate_retur_pembelian_number
+from utils.helpers import (
+    format_rupiah, format_datetime, generate_retur_pembelian_number,
+    apply_potong_hutang_retur,
+)
 from ui.widgets import ThemedComboBox, apply_dialog_theme
 
 
@@ -437,12 +440,8 @@ class ReturPembelianDialog(QDialog):
                         if brg:
                             brg.stok = max(0, brg.stok - item["qty"])
 
-                # Potongan retur mengurangi sisa tagihan pada faktur tempo maupun cicilan.
-                if metode_kembali == "potong_hutang" and p.status_bayar in ("tempo", "cicil"):
-                    p.total = max(0.0, p.total - total_retur)
-                    if p.total <= (p.sudah_dibayar or 0):
-                        p.status_bayar = "lunas"
-                        p.sudah_dibayar = p.total
+                if metode_kembali == "potong_hutang":
+                    apply_potong_hutang_retur(p, total_retur)
 
                 session.commit()
 
