@@ -123,7 +123,7 @@ class MenuFormDialog(QDialog):
         self.photo_preview.setStyleSheet("background: #F3F4F6; border: 1px solid #D1D5DB; border-radius: 10px; font-size: 24px;")
 
     def _display_photo(self, path):
-        pixmap = QPixmap(str(path)).scaled(68, 68, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        pixmap = QPixmap(str(path)).scaled(68, 68, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         if pixmap.isNull():
             self.photo_preview.setText("📷")
             return

@@ -89,19 +89,15 @@ def get_product_icon_and_bg(nama: str, kategori: str):
 
 
 def create_rounded_top_pixmap(pixmap: QPixmap, width: int, height: int, radius: int = 14) -> QPixmap:
-    """Memotong gambar (center crop cover) dengan sudut kiri dan kanan atas melengkung"""
+    """Menskalakan gambar agar utuh dengan sudut kiri dan kanan atas melengkung."""
     if pixmap.isNull() or width <= 0 or height <= 0:
         return QPixmap()
 
     scaled = pixmap.scaled(
         width, height,
-        Qt.KeepAspectRatioByExpanding,
+        Qt.KeepAspectRatio,
         Qt.SmoothTransformation
     )
-
-    x = max(0, (scaled.width() - width) // 2)
-    y = max(0, (scaled.height() - height) // 2)
-    cropped = scaled.copy(x, y, width, height)
 
     dest = QPixmap(width, height)
     dest.fill(Qt.transparent)
@@ -120,7 +116,9 @@ def create_rounded_top_pixmap(pixmap: QPixmap, width: int, height: int, radius: 
     path.closeSubpath()
 
     painter.setClipPath(path)
-    painter.drawPixmap(0, 0, cropped)
+    x = (width - scaled.width()) // 2
+    y = (height - scaled.height()) // 2
+    painter.drawPixmap(x, y, scaled)
     painter.end()
 
     return dest

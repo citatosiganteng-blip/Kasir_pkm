@@ -18,7 +18,7 @@ from PyQt5.QtGui import QIntValidator, QDoubleValidator, QCursor, QPixmap
 
 from database.db import db
 from database.models import Barang
-from utils.helpers import generate_item_code
+from utils.helpers import generate_item_code, release_inactive_barang_identifiers
 import config
 from ui.widgets import ThemedComboBox, apply_dialog_theme
 
@@ -452,7 +452,7 @@ class BarangFormDialog(QDialog):
     def _display_photo(self, path_str: str):
         pixmap = QPixmap(path_str)
         if not pixmap.isNull():
-            scaled = pixmap.scaled(68, 68, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+            scaled = pixmap.scaled(68, 68, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.photo_preview.setPixmap(scaled)
             self.photo_preview.setText("")
             self.photo_preview.setStyleSheet("""
@@ -548,7 +548,8 @@ class BarangFormDialog(QDialog):
 
             # Cek duplikat kode
             existing = session.query(Barang).filter(
-                Barang.kode == kode
+                Barang.kode == kode,
+                Barang.aktif == True,
             )
             if self.barang:
                 existing = existing.filter(Barang.id != self.barang.id)
@@ -558,7 +559,10 @@ class BarangFormDialog(QDialog):
 
             # Cek duplikat barcode
             if barcode:
-                dup_barcode = session.query(Barang).filter(Barang.barcode == barcode)
+                dup_barcode = session.query(Barang).filter(
+                    Barang.barcode == barcode,
+                    Barang.aktif == True,
+                )
                 if self.barang:
                     dup_barcode = dup_barcode.filter(Barang.id != self.barang.id)
                 if dup_barcode.first():
@@ -578,6 +582,13 @@ class BarangFormDialog(QDialog):
                     new_foto = f"uploads/produk/{clean_name}"
                 except Exception as e:
                     print(f"[BarangForm] Gagal menyimpan file foto: {e}")
+
+            release_inactive_barang_identifiers(
+                session,
+                kode,
+                barcode,
+                exclude_id=self.barang.id if self.barang else None,
+            )
 
             if self.barang:
                 # Edit

@@ -240,7 +240,6 @@ class DatabaseManager:
     def _seed_initial_data(self):
         """Buat data awal jika belum ada"""
         with self.get_session() as session:
-            # Buat admin default jika belum ada
             admin = session.query(User).filter_by(username="admin").first()
             if not admin:
                 password_hash = bcrypt.hashpw(
@@ -257,29 +256,29 @@ class DatabaseManager:
                 )
                 session.add(admin)
 
-                # Buat kasir default
+            kasir_u = session.query(User).filter_by(username="kasir").first()
+            if not kasir_u:
                 kasir_hash = bcrypt.hashpw(
                     "kasir123".encode("utf-8"),
                     bcrypt.gensalt()
                 ).decode("utf-8")
-                kasir = User(
+                kasir_u = User(
                     username="kasir",
                     password_hash=kasir_hash,
                     role="kasir",
                     nama_lengkap="Kasir Utama",
                     must_change_password=True
                 )
-                session.add(kasir)
-            else:
-                # Jika user default masih memakai password bawaan, tandai must_change_password
-                try:
-                    if bcrypt.checkpw("admin123".encode("utf-8"), admin.password_hash.encode("utf-8")):
-                        admin.must_change_password = True
-                    kasir_u = session.query(User).filter_by(username="kasir").first()
-                    if kasir_u and bcrypt.checkpw("kasir123".encode("utf-8"), kasir_u.password_hash.encode("utf-8")):
-                        kasir_u.must_change_password = True
-                except Exception:
-                    pass
+                session.add(kasir_u)
+
+            # Jika user default masih memakai password bawaan, tandai wajib ganti password.
+            try:
+                if admin and bcrypt.checkpw("admin123".encode("utf-8"), admin.password_hash.encode("utf-8")):
+                    admin.must_change_password = True
+                if bcrypt.checkpw("kasir123".encode("utf-8"), kasir_u.password_hash.encode("utf-8")):
+                    kasir_u.must_change_password = True
+            except Exception:
+                pass
 
             # Buat pengaturan awal — hanya jika belum ada (first run).
             # Setelah ini, perubahan store info dilakukan via UI Pengaturan.

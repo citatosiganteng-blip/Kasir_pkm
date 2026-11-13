@@ -17,7 +17,7 @@ from database.models import (
 )
 from api.deps import get_current_user_payload
 from api.schemas import DashboardSummaryOut
-from utils.helpers import get_pembelian_status_display
+from utils.helpers import format_tanggal, get_pembelian_status_display
 
 router = APIRouter(prefix="/api/laporan", tags=["laporan"])
 
@@ -124,6 +124,10 @@ def laporan_harian(
 
         total_penjualan = sum(t.total for t in transaksi_list)
         total_pengeluaran = sum(p.nominal for p in pengeluaran_list)
+        total_dpp = sum(t.dpp or 0 for t in transaksi_list)
+        total_ppn = sum(t.ppn_nominal or 0 for t in transaksi_list)
+        total_pph = sum(t.pph_nominal or 0 for t in transaksi_list)
+        total_qty = sum(d.qty for t in transaksi_list for d in t.detail)
 
         by_metode: dict[str, float] = {}
         top_raw: dict[str, dict] = {}
@@ -140,6 +144,10 @@ def laporan_harian(
             "tanggal": str(target),
             "jumlah_transaksi": len(transaksi_list),
             "total_penjualan": total_penjualan,
+            "total_dpp": total_dpp,
+            "total_ppn": total_ppn,
+            "total_pph": total_pph,
+            "jumlah_barang_terjual": total_qty,
             "total_pengeluaran": total_pengeluaran,
             "laba_bersih": total_penjualan - total_pengeluaran,
             "penjualan_per_metode": by_metode,
@@ -166,46 +174,301 @@ def laporan_harian(
         }
 
 
+@router.get("/rentang")
+def laporan_rentang(
+    tanggal_mulai: date = Query(..., description="Format: YYYY-MM-DD"),
+    tanggal_selesai: date = Query(..., description="Format: YYYY-MM-DD"),
+    _: dict = Depends(get_current_user_payload),
+):
+    """Ringkasan penjualan dan pengeluaran untuk rentang tanggal."""
+    if tanggal_selesai < tanggal_mulai:
+        raise HTTPException(400, "Tanggal selesai tidak boleh sebelum tanggal mulai.")
+
+    start = datetime.combine(tanggal_mulai, datetime.min.time())
+    end = datetime.combine(tanggal_selesai, datetime.max.time())
+
+    with db.get_session() as session:
+        transaksi_list = session.query(Transaksi).filter(
+            Transaksi.tanggal >= start,
+            Transaksi.tanggal <= end,
+            Transaksi.status == "selesai",
+        ).order_by(Transaksi.tanggal).all()
+        pengeluaran_list = session.query(Pengeluaran).filter(
+            Pengeluaran.tanggal >= start,
+            Pengeluaran.tanggal <= end,
+        ).all()
+
+        total_penjualan = sum(t.total or 0 for t in transaksi_list)
+        total_subtotal_produk = 0
+        total_qty = 0
+        total_dpp = sum(t.dpp or 0 for t in transaksi_list)
+        total_ppn = sum(t.ppn_nominal or 0 for t in transaksi_list)
+        total_pph = sum(t.pph_nominal or 0 for t in transaksi_list)
+        penjualan_per_metode: dict[str, float] = {}
+        top_raw: dict[str, dict] = {}
+
+        for transaction in transaksi_list:
+            method = transaction.metode_bayar
+            penjualan_per_metode[method] = (
+                penjualan_per_metode.get(method, 0) + (transaction.total or 0)
+            )
+            for detail in transaction.detail:
+                total_qty += detail.qty or 0
+                total_subtotal_produk += detail.subtotal or 0
+                product = top_raw.setdefault(
+                    detail.nama_barang,
+                    {"nama": detail.nama_barang, "qty": 0, "subtotal": 0.0},
+                )
+                product["qty"] += detail.qty or 0
+                product["subtotal"] += detail.subtotal or 0
+
+        total_pengeluaran = sum(expense.nominal or 0 for expense in pengeluaran_list)
+        top_produk = sorted(
+            top_raw.values(),
+            key=lambda row: (row["qty"], row["subtotal"]),
+            reverse=True,
+        )[:10]
+
+        return {
+            "tanggal_mulai": str(tanggal_mulai),
+            "tanggal_selesai": str(tanggal_selesai),
+            "jumlah_transaksi": len(transaksi_list),
+            "jumlah_barang_terjual": total_qty,
+            "total_subtotal_produk": total_subtotal_produk,
+            "total_dpp": total_dpp,
+            "total_ppn": total_ppn,
+            "total_pph": total_pph,
+            "total_penjualan": total_penjualan,
+            "total_pengeluaran": total_pengeluaran,
+            "laba_bersih": total_penjualan - total_pengeluaran,
+            "penjualan_per_metode": penjualan_per_metode,
+            "top_produk": top_produk,
+        }
+
+
 @router.get('/export.csv')
 def export_csv(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Optional[date]=Query(None), _:dict=Depends(get_current_user_payload)):
     start=tanggal_mulai or date.today(); end=tanggal_selesai or start
+    if end < start:
+        raise HTTPException(400, "Tanggal selesai tidak boleh sebelum tanggal mulai.")
     with db.get_session() as s:
         from database.models import TransaksiDetail
         from sqlalchemy import func
         rows=s.query(TransaksiDetail.nama_barang, Barang.kategori, func.sum(TransaksiDetail.qty), func.avg(TransaksiDetail.harga), func.sum(TransaksiDetail.subtotal)).join(Transaksi).outerjoin(Barang, Barang.id==TransaksiDetail.barang_id).filter(Transaksi.status=='selesai', Transaksi.tanggal>=datetime.combine(start,datetime.min.time()), Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).group_by(TransaksiDetail.nama_barang, Barang.kategori).order_by(func.sum(TransaksiDetail.qty).desc()).all()
-    out=StringIO(); w=csv.writer(out); w.writerow(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Total Pendapatan'])
+    out=StringIO(); w=csv.writer(out); w.writerow(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Subtotal Produk'])
     for i,r in enumerate(rows,1): w.writerow([i,r[0],r[1] or '-',int(r[2] or 0),float(r[3] or 0),float(r[4] or 0)])
     return StreamingResponse(iter([out.getvalue().encode('utf-8-sig')]),media_type='text/csv',headers={'Content-Disposition':f'attachment; filename=laporan_penjualan_{start}_{end}.csv'})
 
 @router.get('/export.xlsx')
-def export_xlsx(tanggal_mulai: Optional[date]=Query(None), tanggal_selesai: Optional[date]=Query(None), _:dict=Depends(get_current_user_payload)):
-    start=tanggal_mulai or date.today(); end=tanggal_selesai or start
+def export_xlsx(
+    tanggal_mulai: Optional[date] = Query(None),
+    tanggal_selesai: Optional[date] = Query(None),
+    _: dict = Depends(get_current_user_payload),
+):
+    start = tanggal_mulai or date.today()
+    end = tanggal_selesai or start
+    if end < start:
+        raise HTTPException(400, "Tanggal selesai tidak boleh sebelum tanggal mulai.")
     try:
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    except Exception as e:
-        raise HTTPException(500,'Library openpyxl tidak tersedia')
+    except ImportError as e:
+        raise HTTPException(500, 'Library openpyxl tidak tersedia') from e
+
+    start_dt = datetime.combine(start, datetime.min.time())
+    end_dt = datetime.combine(end, datetime.max.time())
     with db.get_session() as s:
-        from database.models import TransaksiDetail
         from sqlalchemy import func
         from sqlalchemy.orm import joinedload, selectinload
-        rows=s.query(TransaksiDetail.nama_barang, Barang.kategori, func.sum(TransaksiDetail.qty), func.avg(TransaksiDetail.harga), func.sum(TransaksiDetail.subtotal)).join(Transaksi).outerjoin(Barang, Barang.id==TransaksiDetail.barang_id).filter(Transaksi.status=='selesai', Transaksi.tanggal>=datetime.combine(start,datetime.min.time()), Transaksi.tanggal<=datetime.combine(end,datetime.max.time())).group_by(TransaksiDetail.nama_barang, Barang.kategori).order_by(func.sum(TransaksiDetail.qty).desc()).all()
-        purchases=s.query(Pembelian).options(
+        product_rows = s.query(
+            func.date(Transaksi.tanggal).label("sale_date"),
+            TransaksiDetail.nama_barang,
+            Barang.kategori,
+            func.sum(TransaksiDetail.qty).label("qty"),
+            func.avg(TransaksiDetail.harga).label("avg_price"),
+            func.sum(TransaksiDetail.subtotal).label("subtotal"),
+        ).join(
+            Transaksi, TransaksiDetail.transaksi_id == Transaksi.id
+        ).outerjoin(
+            Barang, Barang.id == TransaksiDetail.barang_id
+        ).filter(
+            Transaksi.status == "selesai",
+            Transaksi.tanggal >= start_dt,
+            Transaksi.tanggal <= end_dt,
+        ).group_by(
+            func.date(Transaksi.tanggal),
+            TransaksiDetail.nama_barang,
+            Barang.kategori,
+        ).order_by(
+            func.date(Transaksi.tanggal),
+            func.sum(TransaksiDetail.subtotal).desc(),
+        ).all()
+
+        daily_financials = s.query(
+            func.date(Transaksi.tanggal).label("sale_date"),
+            func.sum(Transaksi.ppn_nominal).label("ppn"),
+            func.sum(Transaksi.pph_nominal).label("pph"),
+            func.sum(Transaksi.total).label("total_sales"),
+        ).filter(
+            Transaksi.status == "selesai",
+            Transaksi.tanggal >= start_dt,
+            Transaksi.tanggal <= end_dt,
+        ).group_by(func.date(Transaksi.tanggal)).all()
+
+        purchases = s.query(Pembelian).options(
             joinedload(Pembelian.supplier),
             selectinload(Pembelian.detail),
             selectinload(Pembelian.retur).selectinload(ReturPembelian.detail),
         ).filter(
-            Pembelian.tanggal >= datetime.combine(start, datetime.min.time()),
-            Pembelian.tanggal <= datetime.combine(end, datetime.max.time()),
+            Pembelian.tanggal >= start_dt,
+            Pembelian.tanggal <= end_dt,
         ).order_by(Pembelian.tanggal.asc()).all()
-    wb=openpyxl.Workbook(); ws=wb.active; ws.title='Laporan Penjualan'
-    ws.append(['No','Nama Produk','Kategori','Terjual','Harga Rata-rata','Total Pendapatan'])
-    for i,r in enumerate(rows,1): ws.append([i,r[0],r[1] or '-',int(r[2] or 0),float(r[3] or 0),float(r[4] or 0)])
-    for c in ws[1]: c.font=Font(bold=True,color='FFFFFF'); c.fill=PatternFill('solid',fgColor='2563EB'); c.alignment=Alignment(horizontal='center')
-    po_ws=wb.create_sheet('Pembelian & Restock')
+
+    def as_date(value):
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+    products_by_date = {}
+    for row in product_rows:
+        products_by_date.setdefault(as_date(row.sale_date), []).append(row)
+    financials_by_date = {}
+    for row in daily_financials:
+        sale_date = as_date(row.sale_date)
+        financials_by_date[sale_date] = row
+        products_by_date.setdefault(sale_date, [])
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Laporan Penjualan'
     store_name = db.get_setting("store_name", "KasirKu")
+    period = f"{start.strftime('%d/%m/%Y')} s/d {end.strftime('%d/%m/%Y')}"
+    ws.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
+    ws.cell(2, 1, f"Periode: {period}").font = Font(size=11, italic=True, color="64748B")
+    ws.cell(3, 1, f"Dicetak pada: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}").font = Font(size=9, color="94A3B8")
+
+    border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1"),
+    )
+    headers = [
+        "No", "Nama Produk", "Kategori", "Terjual (Qty)",
+        "Harga Rata-rata", "Subtotal Produk",
+    ]
+    total_qty = total_subtotal = total_ppn = total_pph = total_sales = 0
+    current_row = 5
+
+    def write_amount_row(row_number, label, amount, fill_color, bold=False):
+        for column in range(1, 7):
+            cell = ws.cell(row_number, column)
+            cell.border = border
+            cell.fill = PatternFill("solid", fgColor=fill_color)
+        label_cell = ws.cell(row_number, 2, label)
+        label_cell.font = Font(bold=bold)
+        label_cell.alignment = Alignment(horizontal="right")
+        amount_cell = ws.cell(row_number, 6, amount or 0)
+        amount_cell.font = Font(bold=bold)
+        amount_cell.alignment = Alignment(horizontal="right")
+        amount_cell.number_format = "#,##0"
+
+    for sale_date in sorted(products_by_date):
+        daily = financials_by_date[sale_date]
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
+        title_cell = ws.cell(
+            current_row,
+            1,
+            f"Periode Penjualan: {format_tanggal(datetime.combine(sale_date, datetime.min.time()))}",
+        )
+        title_cell.font = Font(bold=True, color="1E3A8A", size=11)
+        title_cell.fill = PatternFill("solid", fgColor="DBEAFE")
+        current_row += 1
+
+        for column, heading in enumerate(headers, 1):
+            cell = ws.cell(current_row, column, heading)
+            cell.font = Font(bold=True, color="FFFFFF", size=10)
+            cell.fill = PatternFill("solid", fgColor="2563EB")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = border
+        current_row += 1
+
+        daily_qty = daily_subtotal = 0
+        for rank, product in enumerate(products_by_date[sale_date], 1):
+            values = [
+                rank, product.nama_barang or "-", product.kategori or "-",
+                int(product.qty or 0), product.avg_price or 0, product.subtotal or 0,
+            ]
+            for column, value in enumerate(values, 1):
+                cell = ws.cell(current_row, column, value)
+                cell.border = border
+                if column in (1, 3):
+                    cell.alignment = Alignment(horizontal="center")
+                elif column >= 4:
+                    cell.alignment = Alignment(horizontal="right")
+                    cell.number_format = "#,##0"
+            daily_qty += int(product.qty or 0)
+            daily_subtotal += product.subtotal or 0
+            current_row += 1
+
+        total_qty += daily_qty
+        total_subtotal += daily_subtotal
+        total_ppn += daily.ppn or 0
+        total_pph += daily.pph or 0
+        total_sales += daily.total_sales or 0
+
+        write_amount_row(current_row, "TOTAL HARIAN (SUBTOTAL PRODUK)", daily_subtotal, "F1F5F9", True)
+        qty_cell = ws.cell(current_row, 4, daily_qty)
+        qty_cell.font = Font(bold=True)
+        qty_cell.alignment = Alignment(horizontal="right")
+        qty_cell.number_format = "#,##0"
+        current_row += 1
+        write_amount_row(current_row, "PPN", daily.ppn, "F8FAFC")
+        current_row += 1
+        write_amount_row(current_row, "PPh", daily.pph, "F8FAFC")
+        current_row += 1
+        write_amount_row(current_row, "TOTAL PENJUALAN", daily.total_sales, "DBEAFE", True)
+        current_row += 2
+
+    if not products_by_date:
+        ws.cell(current_row, 1, "Tidak ada transaksi penjualan pada periode ini.")
+        current_row += 1
+
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
+    overall_cell = ws.cell(current_row, 1, f"Rekap Keseluruhan: {period}")
+    overall_cell.font = Font(bold=True, color="334155", size=11)
+    overall_cell.fill = PatternFill("solid", fgColor="E2E8F0")
+    current_row += 1
+
+    summary_rows = [
+        ("TOTAL SUBTOTAL PRODUK", total_subtotal, total_qty),
+        ("PPN", total_ppn, None),
+        ("PPh", total_pph, None),
+        ("TOTAL PENJUALAN", total_sales, None),
+    ]
+    for label, amount, quantity in summary_rows:
+        write_amount_row(
+            current_row,
+            label,
+            amount,
+            "CBD5E1" if label == "TOTAL PENJUALAN" else "E2E8F0",
+            True,
+        )
+        if quantity is not None:
+            qty_cell = ws.cell(current_row, 4, quantity)
+            qty_cell.font = Font(bold=True)
+            qty_cell.alignment = Alignment(horizontal="right")
+            qty_cell.number_format = "#,##0"
+        current_row += 1
+
+    for column, width in enumerate([8, 34, 18, 16, 20, 24], 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(column)].width = width
+
+    po_ws = wb.create_sheet('Pembelian & Restock')
     po_ws.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
-    po_ws.cell(2, 1, f"Periode: {start.strftime('%d/%m/%Y')} s/d {end.strftime('%d/%m/%Y')}").font = Font(size=11, italic=True, color="64748B")
+    po_ws.cell(2, 1, f"Periode: {period}").font = Font(size=11, italic=True, color="64748B")
     po_headers = [
         "No PO", "No Faktur Vendor", "Tanggal", "Supplier", "Nama Barang",
         "Qty Restock", "Harga Beli", "Subtotal Item", "Total Faktur",

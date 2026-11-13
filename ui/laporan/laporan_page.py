@@ -12,7 +12,8 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QComboBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QTabWidget, QMessageBox, QDateEdit, QSizePolicy,
-    QScrollArea, QMenu, QAction, QToolTip, QFileDialog
+    QScrollArea, QMenu, QAction, QToolTip, QFileDialog, QStyle,
+    QStyleOptionHeader
 )
 from PyQt5.QtCore import Qt, QDate, QSize, QPoint, QRectF
 from PyQt5.QtGui import (
@@ -34,6 +35,41 @@ import csv
 import math
 
 
+def aggregate_intraday_revenue(transactions):
+    """Jumlahkan pendapatan per menit transaksi dan urutkan menurut waktu."""
+    from collections import defaultdict
+
+    minute_totals = defaultdict(float)
+    for transaction in transactions:
+        minute = transaction.tanggal.strftime("%H:%M")
+        minute_totals[minute] += float(transaction.total or 0)
+    return sorted(minute_totals.items())
+
+
+class ProductTableHeader(QHeaderView):
+    """Tempatkan judul nama produk sejajar dengan area thumbnail dan nama."""
+
+    def paintSection(self, painter, rect, logical_index):
+        if logical_index != 1:
+            super().paintSection(painter, rect, logical_index)
+            return
+
+        option = QStyleOptionHeader()
+        option.initFrom(self)
+        option.rect = rect
+        option.section = logical_index
+        option.orientation = self.orientation()
+        option.text = str(
+            self.model().headerData(logical_index, self.orientation(), Qt.DisplayRole)
+        )
+        option.textAlignment = Qt.AlignLeft | Qt.AlignVCenter
+        option.position = QStyleOptionHeader.Middle
+
+        self.style().drawControl(QStyle.CE_HeaderSection, option, painter, self)
+        option.rect = rect.adjusted(52, 0, 0, 0)
+        self.style().drawControl(QStyle.CE_HeaderLabel, option, painter, self)
+
+
 class BarChartWidget(QWidget):
     """
     Modern Bar Chart Widget:
@@ -48,15 +84,17 @@ class BarChartWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._data = []  # list of (label_str, numeric_value)
+        self._time_axis = False
         self._hover_idx = -1
         self._bar_rects = []  # list of (QRectF, label, val)
         self.setMinimumHeight(280)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.setMouseTracking(True)
 
-    def set_data(self, data: list):
-        """data: list of (label_str, numeric_value)"""
+    def set_data(self, data: list, time_axis: bool = False):
+        """data: list of (label_str, numeric_value), optionally on a clock-time axis."""
         self._data = data
+        self._time_axis = time_axis
         self._hover_idx = -1
         self._bar_rects = []
         self.update()
@@ -115,7 +153,7 @@ class BarChartWidget(QWidget):
         margin_l = 68   # Room for Y labels (e.g. "Rp 1.5jt")
         margin_r = 24
         margin_top = 28
-        margin_bot = 38  # Room for X labels (e.g. "08:00")
+        margin_bot = 58 if self._time_axis else 38
 
         chart_w = max(10, w - margin_l - margin_r)
         chart_h = max(10, h - margin_top - margin_bot)
@@ -143,6 +181,31 @@ class BarChartWidget(QWidget):
 
         # ── 2. DRAW BARS & X-AXIS LABELS ──
         self._bar_rects = []
+        time_minutes = [
+            int(label[:2]) * 60 + int(label[3:5])
+            for label, _ in self._data
+        ] if self._time_axis else []
+        if self._time_axis:
+            min_data_time = min(time_minutes, default=8 * 60)
+            max_data_time = max(time_minutes, default=20 * 60)
+            time_start = min(8 * 60, (min_data_time // 60) * 60)
+            time_end = max(20 * 60, min(24 * 60, (max_data_time // 60 + 1) * 60))
+            time_span = max(1, time_end - time_start)
+            hours_in_chart = time_span / 60
+            tick_step = 1 if chart_w / hours_in_chart >= 55 else 2
+
+            painter.setFont(QFont("Segoe UI", 8))
+            painter.setPen(QPen(axis_text_color))
+            baseline_y = margin_top + chart_h
+            for minute in range(time_start, time_end + 1, tick_step * 60):
+                x = margin_l + (minute - time_start) / time_span * chart_w
+                painter.drawLine(int(x), baseline_y, int(x), baseline_y + 4)
+                hour_label = f"{(minute // 60) % 24:02d}:00"
+                painter.drawText(
+                    int(x - 28), baseline_y + 5, 56, 16,
+                    Qt.AlignCenter, hour_label
+                )
+
         if not self._data:
             painter.end()
             return
@@ -156,12 +219,23 @@ class BarChartWidget(QWidget):
                     peak_idx = idx
                     break
 
-        # Calculate optimal bar width and gap (proportional, max 50px)
-        slot_w = chart_w / float(n)
-        bar_w = min(48.0, max(14.0, slot_w * 0.56))
+        if self._time_axis:
+            bar_w = min(18.0, max(4.0, chart_w / time_span * 0.75))
+        else:
+            slot_w = chart_w / float(n)
+            bar_w = min(48.0, max(14.0, slot_w * 0.56))
 
         for i, (label, val) in enumerate(self._data):
-            center_x = margin_l + (i + 0.5) * slot_w
+            if self._time_axis:
+                center_x = margin_l + (
+                    (time_minutes[i] - time_start) / time_span * chart_w
+                )
+                center_x = max(
+                    margin_l + bar_w / 2,
+                    min(margin_l + chart_w - bar_w / 2, center_x),
+                )
+            else:
+                center_x = margin_l + (i + 0.5) * slot_w
             x = center_x - (bar_w / 2.0)
 
             is_peak = (i == peak_idx and val > 0)
@@ -214,10 +288,32 @@ class BarChartWidget(QWidget):
                 val_short = format_rupiah_short(val)
                 painter.drawText(int(center_x - 40), int(y - 18), 80, 16, Qt.AlignCenter, val_short)
 
-            # X label
+            if not self._time_axis:
+                painter.setPen(QPen(axis_text_color))
+                painter.setFont(QFont("Segoe UI", 8, QFont.Bold if is_peak else QFont.Normal))
+                painter.drawText(
+                    int(center_x - 35), int(margin_top + chart_h + 10),
+                    70, 18, Qt.AlignCenter, label
+                )
+
+        if self._time_axis:
             painter.setPen(QPen(axis_text_color))
-            painter.setFont(QFont("Segoe UI", 8, QFont.Bold if is_peak else QFont.Normal))
-            painter.drawText(int(center_x - 35), int(margin_top + chart_h + 10), 70, 18, Qt.AlignCenter, label)
+            painter.setFont(QFont("Segoe UI", 8))
+            last_label_x = float("-inf")
+            for (label, _), minute in zip(self._data, time_minutes):
+                center_x = margin_l + (
+                    (minute - time_start) / time_span * chart_w
+                )
+                center_x = max(
+                    margin_l + bar_w / 2,
+                    min(margin_l + chart_w - bar_w / 2, center_x),
+                )
+                if center_x - last_label_x >= 52:
+                    painter.drawText(
+                        int(center_x - 28), margin_top + chart_h + 29,
+                        56, 16, Qt.AlignCenter, label
+                    )
+                    last_label_x = center_x
 
         painter.end()
 
@@ -365,7 +461,10 @@ class LaporanPage(QWidget):
         cards_row = QHBoxLayout()
         cards_row.setSpacing(14)
 
-        self.card_pendapatan = self._make_stat_card("Total Pendapatan", "Rp 0", "+0% dari kemarin", "📈", "#3F72AF")
+        self.card_pendapatan = self._make_stat_card("Total Penjualan", "Rp 0", "+0% dari kemarin", "📈", "#3F72AF")
+        self.card_pendapatan.setToolTip(
+            "Jumlah transaksi selesai, termasuk PPN. Transaksi void tidak dihitung."
+        )
         self.card_transaksi = self._make_stat_card("Total Transaksi", "0 Transaksi", "+0% dari kemarin", "📋", "#10B981")
         self.card_rata = self._make_stat_card("Rata-rata Peranjang", "Rp 0", "+0% dari kemarin", "🛍", "#F59E0B")
         self.card_terjual = self._make_stat_card("Barang Terjual", "0 Unit", "+0% dari kemarin", "📦", "#8B5CF6")
@@ -400,7 +499,7 @@ class LaporanPage(QWidget):
         chart_title_row.addWidget(legend_lbl)
         chart_layout.addLayout(chart_title_row)
 
-        self.chart_sub = QLabel("Tren penjualan per jam hari ini")
+        self.chart_sub = QLabel("Tren penjualan sesuai waktu transaksi hari ini")
         self.chart_sub.setStyleSheet("color: #64748B; font-size: 11px; background: transparent;")
         chart_layout.addWidget(self.chart_sub)
 
@@ -474,8 +573,11 @@ class LaporanPage(QWidget):
 
         self.product_table = QTableWidget()
         self.product_table.setColumnCount(6)
+        self.product_table.setHorizontalHeader(
+            ProductTableHeader(Qt.Horizontal, self.product_table)
+        )
         self.product_table.setHorizontalHeaderLabels([
-            "No", "Nama Produk", "Kategori", "Terjual", "Harga Satuan", "Total Pendapatan"
+            "No", "Nama Produk", "Kategori", "Terjual", "Harga Satuan", "Subtotal Produk"
         ])
         hh = self.product_table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.Fixed)
@@ -703,32 +805,9 @@ class LaporanPage(QWidget):
         period = self._current_period
 
         if period == "hari_ini":
-            # 7 time slots like reference mockup (08:00, 10:00, 12:00, 14:00, 16:00, 18:00, 20:00)
-            slots = [8, 10, 12, 14, 16, 18, 20]
-            slot_data = {s: 0.0 for s in slots}
-
-            for t in trans:
-                h = t.tanggal.hour
-                # Map to 2-hour bracket
-                if h < 9:
-                    bracket = 8
-                elif h < 11:
-                    bracket = 10
-                elif h < 13:
-                    bracket = 12
-                elif h < 15:
-                    bracket = 14
-                elif h < 17:
-                    bracket = 16
-                elif h < 19:
-                    bracket = 18
-                else:
-                    bracket = 20
-                slot_data[bracket] += float(t.total)
-
-            data = [(f"{s:02d}:00", slot_data[s]) for s in slots]
+            data = aggregate_intraday_revenue(trans)
             if hasattr(self, "chart_sub"):
-                self.chart_sub.setText("Tren penjualan per jam hari ini")
+                self.chart_sub.setText("Tren penjualan sesuai waktu transaksi hari ini")
 
         elif period == "minggu_ini":
             # 7 days: Senin - Minggu
@@ -800,7 +879,7 @@ class LaporanPage(QWidget):
             if hasattr(self, "chart_sub"):
                 self.chart_sub.setText("Tren penjualan periode kustom")
 
-        self.bar_chart.set_data(data)
+        self.bar_chart.set_data(data, time_axis=period == "hari_ini")
 
     def _load_payment_methods(self, dt_from, dt_to):
         from collections import defaultdict
@@ -995,7 +1074,7 @@ class LaporanPage(QWidget):
             harga_item.setForeground(QColor(text_primary))
             self.product_table.setItem(row, 4, harga_item)
 
-            # Total Pendapatan
+            # Subtotal produk sebelum pajak transaksi
             rev_item = QTableWidgetItem(format_rupiah(r.total_revenue))
             rev_item.setForeground(QColor("#10B981"))
             rev_item.setFont(QFont("Segoe UI", 10, QFont.Bold))
@@ -1025,8 +1104,7 @@ class LaporanPage(QWidget):
     # Export Excel & CSV
     # =========================================================================
     def _export_excel(self):
-        if self._dt_from is None:
-            self._load_all()
+        self._load_all()
 
         parent_w = self.window() if hasattr(self, "window") else None
 
@@ -1061,7 +1139,8 @@ class LaporanPage(QWidget):
 
             # Title & Subtitle
             ws.cell(1, 1, store_name).font = Font(bold=True, size=16, color="1E293B")
-            period_str = f"Periode: {self._dt_from.strftime('%d/%m/%Y')} s/d {self._dt_to.strftime('%d/%m/%Y')}"
+            period_range = f"{self._dt_from.strftime('%d/%m/%Y')} s/d {self._dt_to.strftime('%d/%m/%Y')}"
+            period_str = f"Periode: {period_range}"
             ws.cell(2, 1, period_str).font = Font(size=11, italic=True, color="64748B")
             ws.cell(3, 1, f"Dicetak pada: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}").font = Font(size=9, color="94A3B8")
 
@@ -1073,81 +1152,216 @@ class LaporanPage(QWidget):
                 bottom=Side(style='thin', color='CBD5E1')
             )
 
-            # Table Headers
-            headers = ["No", "Nama Produk", "Kategori", "Terjual (Qty)", "Harga Rata-rata", "Total Pendapatan"]
-            header_row = 5
-            for col_idx, h in enumerate(headers, 1):
-                c = ws.cell(header_row, col_idx, h)
-                c.font = Font(bold=True, color="FFFFFF", size=10)
-                c.fill = PatternFill("solid", fgColor="2563EB")
-                c.alignment = Alignment(horizontal="center", vertical="center")
-                c.border = thin_border
-            ws.row_dimensions[header_row].height = 24
+            headers = [
+                "No", "Nama Produk", "Kategori", "Terjual (Qty)",
+                "Harga Rata-rata", "Subtotal Produk"
+            ]
+            with db.get_session() as session:
+                sales_rows = session.query(
+                    func.date(Transaksi.tanggal).label("sale_date"),
+                    TransaksiDetail.nama_barang,
+                    TransaksiDetail.barang_id,
+                    func.sum(TransaksiDetail.qty).label("total_qty"),
+                    func.avg(TransaksiDetail.harga).label("avg_harga"),
+                    func.sum(TransaksiDetail.subtotal).label("revenue"),
+                ).join(
+                    Transaksi, TransaksiDetail.transaksi_id == Transaksi.id
+                ).filter(
+                    Transaksi.tanggal >= self._dt_from,
+                    Transaksi.tanggal <= self._dt_to,
+                    Transaksi.status == "selesai"
+                ).group_by(
+                    func.date(Transaksi.tanggal),
+                    TransaksiDetail.nama_barang,
+                    TransaksiDetail.barang_id
+                ).order_by(
+                    func.date(Transaksi.tanggal),
+                    func.sum(TransaksiDetail.subtotal).desc()
+                ).all()
+
+                daily_financials = session.query(
+                    func.date(Transaksi.tanggal).label("sale_date"),
+                    func.sum(Transaksi.ppn_nominal).label("ppn"),
+                    func.sum(Transaksi.pph_nominal).label("pph"),
+                    func.sum(Transaksi.total).label("total_sales"),
+                ).filter(
+                    Transaksi.tanggal >= self._dt_from,
+                    Transaksi.tanggal <= self._dt_to,
+                    Transaksi.status == "selesai"
+                ).group_by(func.date(Transaksi.tanggal)).all()
+
+                barang_ids = {row.barang_id for row in sales_rows if row.barang_id}
+                kategori_map = {}
+                if barang_ids:
+                    kategori_map = {
+                        barang.id: barang.kategori
+                        for barang in session.query(Barang).filter(Barang.id.in_(barang_ids)).all()
+                    }
+
+            def to_date(value):
+                if isinstance(value, datetime):
+                    return value.date()
+                if isinstance(value, date):
+                    return value
+                return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+            sales_by_date = {}
+            for sale in sales_rows:
+                sales_by_date.setdefault(to_date(sale.sale_date), []).append(sale)
+
+            financials_by_date = {}
+            for daily in daily_financials:
+                sale_date = to_date(daily.sale_date)
+                financials_by_date[sale_date] = daily
+                sales_by_date.setdefault(sale_date, [])
 
             total_qty_sum = 0
-            total_rev_sum = 0
+            total_product_subtotal_sum = 0
+            total_ppn_sum = 0
+            total_pph_sum = 0
+            total_sales_sum = 0
+            current_row = 5
+            period_title_rows = set()
 
-            # Data rows
-            for idx, p in enumerate(self._product_data, start=header_row + 1):
-                c1 = ws.cell(idx, 1, p.get("rank", idx - header_row))
-                c1.alignment = Alignment(horizontal="center")
+            for sale_date, products in sorted(sales_by_date.items()):
+                financials = financials_by_date[sale_date]
+                period_title = f"Periode Penjualan: {format_tanggal(datetime.combine(sale_date, datetime.min.time()))}"
+                ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
+                period_cell = ws.cell(current_row, 1, period_title)
+                period_cell.font = Font(bold=True, color="1E3A8A", size=11)
+                period_cell.alignment = Alignment(vertical="center")
+                period_cell.fill = PatternFill("solid", fgColor="DBEAFE")
+                period_title_rows.add(current_row)
+                ws.row_dimensions[current_row].height = 22
+                current_row += 1
 
-                c2 = ws.cell(idx, 2, p.get("nama", "-"))
+                header_row = current_row
+                for col_idx, heading in enumerate(headers, 1):
+                    cell = ws.cell(header_row, col_idx, heading)
+                    cell.font = Font(bold=True, color="FFFFFF", size=10)
+                    cell.fill = PatternFill("solid", fgColor="2563EB")
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    cell.border = thin_border
+                ws.row_dimensions[header_row].height = 24
+                current_row += 1
 
-                c3 = ws.cell(idx, 3, p.get("kategori", "-"))
-                c3.alignment = Alignment(horizontal="center")
+                daily_qty = 0
+                daily_product_subtotal = 0
+                for rank, product in enumerate(products, start=1):
+                    ws.cell(current_row, 1, rank).alignment = Alignment(horizontal="center")
+                    ws.cell(current_row, 2, product.nama_barang or "-")
+                    category = kategori_map.get(product.barang_id, "-") or "-"
+                    ws.cell(current_row, 3, category).alignment = Alignment(horizontal="center")
 
-                qty = p.get("total_qty", 0)
-                c4 = ws.cell(idx, 4, qty)
-                c4.alignment = Alignment(horizontal="right")
-                c4.number_format = "#,##0"
-                total_qty_sum += qty
+                    qty = int(product.total_qty or 0)
+                    quantity_cell = ws.cell(current_row, 4, qty)
+                    quantity_cell.alignment = Alignment(horizontal="right")
+                    quantity_cell.number_format = "#,##0"
+                    daily_qty += qty
 
-                avg = p.get("avg_harga", 0)
-                c5 = ws.cell(idx, 5, avg)
-                c5.alignment = Alignment(horizontal="right")
-                c5.number_format = "#,##0"
+                    average_cell = ws.cell(current_row, 5, product.avg_harga or 0)
+                    average_cell.alignment = Alignment(horizontal="right")
+                    average_cell.number_format = "#,##0"
 
-                rev = p.get("revenue", 0)
-                c6 = ws.cell(idx, 6, rev)
-                c6.alignment = Alignment(horizontal="right")
-                c6.number_format = "#,##0"
-                total_rev_sum += rev
+                    revenue = product.revenue or 0
+                    revenue_cell = ws.cell(current_row, 6, revenue)
+                    revenue_cell.alignment = Alignment(horizontal="right")
+                    revenue_cell.number_format = "#,##0"
+                    daily_product_subtotal += revenue
 
+                    for col in range(1, 7):
+                        ws.cell(current_row, col).border = thin_border
+                    current_row += 1
+
+                total_qty_sum += daily_qty
+                total_product_subtotal_sum += daily_product_subtotal
+                total_ppn_sum += financials.ppn or 0
+                total_pph_sum += financials.pph or 0
+                total_sales_sum += financials.total_sales or 0
+
+                total_row = current_row
                 for col in range(1, 7):
-                    ws.cell(idx, col).border = thin_border
+                    ws.cell(total_row, col).border = thin_border
+                    ws.cell(total_row, col).fill = PatternFill("solid", fgColor="F1F5F9")
+                total_label = ws.cell(total_row, 2, "TOTAL HARIAN (SUBTOTAL PRODUK)")
+                total_label.font = Font(bold=True)
+                total_label.alignment = Alignment(horizontal="right")
+                daily_qty_cell = ws.cell(total_row, 4, daily_qty)
+                daily_qty_cell.font = Font(bold=True)
+                daily_qty_cell.alignment = Alignment(horizontal="right")
+                daily_qty_cell.number_format = "#,##0"
+                subtotal_cell = ws.cell(total_row, 6, daily_product_subtotal)
+                subtotal_cell.font = Font(bold=True)
+                subtotal_cell.alignment = Alignment(horizontal="right")
+                subtotal_cell.number_format = "#,##0"
+                current_row += 1
 
-            # Summary row
-            sum_row = header_row + len(self._product_data) + 1
-            ws.cell(sum_row, 1, "").border = thin_border
-            ws.cell(sum_row, 2, "TOTAL").font = Font(bold=True)
-            ws.cell(sum_row, 2).alignment = Alignment(horizontal="right")
-            ws.cell(sum_row, 2).border = thin_border
-            ws.cell(sum_row, 3, "").border = thin_border
+                for label, amount, is_total in [
+                    ("PPN", financials.ppn or 0, False),
+                    ("PPh", financials.pph or 0, False),
+                    ("TOTAL PENJUALAN", financials.total_sales or 0, True),
+                ]:
+                    summary_row = current_row
+                    fill_color = "DBEAFE" if is_total else "F8FAFC"
+                    for col in range(1, 7):
+                        cell = ws.cell(summary_row, col)
+                        cell.border = thin_border
+                        cell.fill = PatternFill("solid", fgColor=fill_color)
+                    label_cell = ws.cell(summary_row, 2, label)
+                    label_cell.font = Font(bold=is_total)
+                    label_cell.alignment = Alignment(horizontal="right")
+                    amount_cell = ws.cell(summary_row, 6, amount)
+                    amount_cell.font = Font(bold=is_total)
+                    amount_cell.alignment = Alignment(horizontal="right")
+                    amount_cell.number_format = "#,##0"
+                    current_row += 1
+                current_row += 1
 
-            c_tot_qty = ws.cell(sum_row, 4, total_qty_sum)
-            c_tot_qty.font = Font(bold=True)
-            c_tot_qty.alignment = Alignment(horizontal="right")
-            c_tot_qty.number_format = "#,##0"
-            c_tot_qty.border = thin_border
+            if not sales_by_date:
+                ws.cell(current_row, 1, "Tidak ada transaksi penjualan pada periode ini.")
+                current_row += 1
 
-            ws.cell(sum_row, 5, "").border = thin_border
+            overall_title = ws.cell(current_row, 1, f"Rekap Keseluruhan: {period_range}")
+            ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=6)
+            overall_title.font = Font(bold=True, color="334155", size=11)
+            overall_title.fill = PatternFill("solid", fgColor="E2E8F0")
+            period_title_rows.add(current_row)
+            current_row += 1
 
-            c_tot_rev = ws.cell(sum_row, 6, total_rev_sum)
-            c_tot_rev.font = Font(bold=True)
-            c_tot_rev.alignment = Alignment(horizontal="right")
-            c_tot_rev.number_format = "#,##0"
-            c_tot_rev.border = thin_border
-
-            for col in range(1, 7):
-                ws.cell(sum_row, col).fill = PatternFill("solid", fgColor="F1F5F9")
+            summary_rows = [
+                ("TOTAL SUBTOTAL PRODUK", total_product_subtotal_sum, total_qty_sum),
+                ("PPN", total_ppn_sum, None),
+                ("PPh", total_pph_sum, None),
+                ("TOTAL PENJUALAN", total_sales_sum, None),
+            ]
+            for label, amount, quantity in summary_rows:
+                summary_row = current_row
+                is_total = label == "TOTAL PENJUALAN"
+                fill_color = "CBD5E1" if is_total else "E2E8F0"
+                for col in range(1, 7):
+                    cell = ws.cell(summary_row, col)
+                    cell.border = thin_border
+                    cell.fill = PatternFill("solid", fgColor=fill_color)
+                label_cell = ws.cell(summary_row, 2, label)
+                label_cell.font = Font(bold=True)
+                label_cell.alignment = Alignment(horizontal="right")
+                if quantity is not None:
+                    quantity_cell = ws.cell(summary_row, 4, quantity)
+                    quantity_cell.font = Font(bold=True)
+                    quantity_cell.alignment = Alignment(horizontal="right")
+                    quantity_cell.number_format = "#,##0"
+                amount_cell = ws.cell(summary_row, 6, amount)
+                amount_cell.font = Font(bold=True)
+                amount_cell.alignment = Alignment(horizontal="right")
+                amount_cell.number_format = "#,##0"
+                current_row += 1
 
             # Auto-fit column widths
             for col in ws.columns:
                 max_len = 0
                 col_letter = get_column_letter(col[0].column)
                 for cell in col:
-                    if cell.row < header_row:
+                    if cell.row in period_title_rows:
                         continue
                     if cell.value:
                         val_str = str(cell.value)
@@ -1242,8 +1456,7 @@ class LaporanPage(QWidget):
             QMessageBox.critical(parent_w, "Error Export", f"Gagal mengekspor laporan:\n{e}")
 
     def _export_csv(self):
-        if self._dt_from is None:
-            self._load_all()
+        self._load_all()
 
         parent_w = self.window() if hasattr(self, "window") else None
 
@@ -1264,7 +1477,10 @@ class LaporanPage(QWidget):
         try:
             with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
                 writer = csv.writer(f)
-                writer.writerow(["No", "Nama Produk", "Kategori", "Terjual", "Harga Satuan", "Total Pendapatan"])
+                writer.writerow([
+                    "No", "Nama Produk", "Kategori", "Terjual",
+                    "Harga Satuan", "Subtotal Produk"
+                ])
                 for p in self._product_data:
                     writer.writerow([
                         p.get("rank", ""),

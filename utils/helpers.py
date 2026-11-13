@@ -5,6 +5,7 @@ Fungsi-fungsi helper untuk format, tanggal, dan lainnya
 
 from datetime import datetime, date
 from typing import Optional
+from uuid import uuid4
 
 
 def format_rupiah(amount: float) -> str:
@@ -145,6 +146,38 @@ def generate_item_code(session) -> str:
     else:
         new_num = 1
     return f"BRG{new_num:03d}"
+
+
+def archive_barang_identifiers(barang) -> None:
+    """Nonaktifkan barang dan bebaskan kode/barcode sambil mempertahankan baris arsip."""
+    barang.aktif = False
+    barang.kode = f"__deleted_{barang.id}_{uuid4().hex[:16]}"
+    barang.barcode = None
+
+
+def release_inactive_barang_identifiers(
+    session, kode: str, barcode: Optional[str] = None, exclude_id: Optional[int] = None
+) -> None:
+    """Bebaskan identitas barang lama yang dinonaktifkan sebelum dipakai ulang."""
+    from database.models import Barang
+    from sqlalchemy import or_
+
+    identities = [Barang.kode == kode]
+    if barcode:
+        identities.append(Barang.barcode == barcode)
+
+    query = session.query(Barang).filter(
+        Barang.aktif == False,
+        or_(*identities),
+    )
+    if exclude_id is not None:
+        query = query.filter(Barang.id != exclude_id)
+
+    inactive_items = query.all()
+    for barang in inactive_items:
+        archive_barang_identifiers(barang)
+    if inactive_items:
+        session.flush()
 
 
 def truncate_text(text: str, max_len: int = 30) -> str:

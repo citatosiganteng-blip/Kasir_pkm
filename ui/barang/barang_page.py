@@ -16,7 +16,7 @@ import config
 
 from database.db import db
 from database.models import Barang
-from utils.helpers import format_rupiah
+from utils.helpers import archive_barang_identifiers, format_rupiah
 from auth.auth_manager import auth
 from ui.dashboard import _rgba
 from .barang_form import BarangFormDialog
@@ -461,7 +461,7 @@ class BarangPage(QWidget):
                         thumb_lbl = QLabel()
                         thumb_lbl.setFixedSize(38, 38)
                         thumb_lbl.setAlignment(Qt.AlignCenter)
-                        scaled_pix = pix.scaled(38, 38, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                        scaled_pix = pix.scaled(38, 38, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                         thumb_lbl.setPixmap(scaled_pix)
                         border_c = "#274568" if is_dark else "#E5E7EB"
                         thumb_lbl.setStyleSheet(f"""
@@ -628,7 +628,7 @@ class BarangPage(QWidget):
     def _delete_barang(self, barang_id: int):
         reply = QMessageBox.question(
             self, "Konfirmasi Hapus",
-            "Yakin ingin menghapus barang ini?\nBarang akan dinonaktifkan dari sistem.",
+            "Yakin ingin menghapus barang ini?\nKode dan barcode barang akan dapat digunakan kembali.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
@@ -636,7 +636,7 @@ class BarangPage(QWidget):
             with db.get_session() as session:
                 b = session.query(Barang).filter_by(id=barang_id).first()
                 if b:
-                    b.aktif = False
+                    archive_barang_identifiers(b)
                     session.commit()
             self._load_data()
 

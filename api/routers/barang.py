@@ -12,7 +12,11 @@ from fastapi import APIRouter, HTTPException, status, Depends, Query, UploadFile
 import config
 from database.db import db
 from database.models import Barang
-from utils.helpers import generate_item_code
+from utils.helpers import (
+    archive_barang_identifiers,
+    generate_item_code,
+    release_inactive_barang_identifiers,
+)
 from api.deps import get_current_user_payload, require_admin
 from api.schemas import BarangOut, BarangCreate, BarangUpdate, MessageResponse
 
@@ -99,18 +103,28 @@ def create_barang(body: BarangCreate, _: dict = Depends(require_admin)):
             kode = generate_item_code(session)
 
         # Cek duplikat kode
-        if session.query(Barang).filter_by(kode=kode).first():
+        if session.query(Barang).filter_by(kode=kode, aktif=True).first():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Kode barang '{kode}' sudah digunakan",
             )
 
         # Cek duplikat nama
-        if session.query(Barang).filter_by(nama=body.nama).first():
+        if session.query(Barang).filter_by(nama=body.nama, aktif=True).first():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Nama barang '{body.nama}' sudah ada",
             )
+
+        if body.barcode and session.query(Barang).filter_by(
+            barcode=body.barcode, aktif=True
+        ).first():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Barcode '{body.barcode}' sudah digunakan",
+            )
+
+        release_inactive_barang_identifiers(session, kode, body.barcode)
 
         b = Barang(
             kode=kode,
@@ -210,5 +224,5 @@ def deactivate_barang(barang_id: int, _: dict = Depends(require_admin)):
         b = session.query(Barang).filter_by(id=barang_id).first()
         if not b:
             raise HTTPException(status_code=404, detail="Barang tidak ditemukan")
-        b.aktif = False
+        archive_barang_identifiers(b)
         return MessageResponse(message=f"Barang '{b.nama}' berhasil dinonaktifkan")

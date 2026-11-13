@@ -76,7 +76,7 @@ class MenuCard(QFrame):
             if path.exists():
                 pix = QPixmap(str(path))
                 if not pix.isNull():
-                    banner.setPixmap(pix.scaled(200, 115, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation))
+                    banner.setPixmap(pix.scaled(200, 115, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                 else:
                     banner.setText("📷")
             else:

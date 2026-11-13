@@ -1309,6 +1309,8 @@ body.role-admin .admin-only{display:block!important}
         <div class="period-row" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 10px;">
           <button class="cat-chip active" id="lap-period-today" onclick="setLapPeriod('today',this)">Hari Ini</button>
           <button class="cat-chip" id="lap-period-yesterday" onclick="setLapPeriod('yesterday',this)">Kemarin</button>
+          <button class="cat-chip" id="lap-period-week" onclick="setLapPeriod('week',this)">Minggu Ini</button>
+          <button class="cat-chip" id="lap-period-month" onclick="setLapPeriod('month',this)">Bulan Ini</button>
           <button class="cat-chip" id="lap-period-range" onclick="setLapPeriod('range',this)">Rentang Tanggal</button>
           <input id="lap-from" type="date" class="filter-input" style="display:none">
           <span id="lap-sd" style="display:none;color:var(--text2)">s/d</span>
@@ -1318,15 +1320,15 @@ body.role-admin .admin-only{display:block!important}
       </div>
       <div class="stat-grid">
         <div class="stat-card accent">
-          <div class="stat-lbl">💰 Penjualan Hari Ini</div>
+          <div class="stat-lbl">💰 Total Penjualan (termasuk PPN)</div>
           <div class="stat-val" id="s-penjualan">—</div>
         </div>
         <div class="stat-card">
-          <div class="stat-lbl">🧾 Transaksi Hari Ini</div>
+          <div class="stat-lbl">🧾 Transaksi Periode</div>
           <div class="stat-val" id="s-trx">—</div>
         </div>
         <div class="stat-card success">
-          <div class="stat-lbl">✅ Laba Bersih</div>
+          <div class="stat-lbl">✅ Laba Bersih Periode</div>
           <div class="stat-val" id="s-laba">—</div>
         </div>
         <div class="stat-card warn">
@@ -1334,16 +1336,16 @@ body.role-admin .admin-only{display:block!important}
           <div class="stat-val" id="s-stok">—</div>
         </div>
         <div class="stat-card danger" onclick="if(me?.role==='admin')switchTab('admin-pengeluaran')" style="cursor:pointer" title="Kelola Pengeluaran">
-          <div class="stat-lbl">💸 Pengeluaran Hari Ini</div>
+          <div class="stat-lbl">💸 Pengeluaran Periode</div>
           <div class="stat-val" id="s-pengeluaran">—</div>
         </div>
         <div class="stat-card" style="grid-column:1/-1">
-          <div class="stat-lbl">📅 Penjualan Bulan Ini</div>
-          <div class="stat-val" id="s-bulan">—</div>
+          <div class="stat-lbl">🧾 PPN Periode</div>
+          <div class="stat-val" id="s-ppn">—</div>
         </div>
       </div>
       <div class="section">
-        <div class="section-title">🏆 Top Produk Hari Ini</div>
+        <div class="section-title">🏆 Produk Terlaris pada Periode</div>
         <div id="top-list"><div class="empty-state"><div class="icon">📊</div><p>Memuat data...</p></div></div>
       </div>
       <div class="section"><div class="section-title">💳 Metode Pembayaran</div><div id="lap-payment-list"><div class="empty-state"><p>Memuat data...</p></div></div></div>
@@ -2093,24 +2095,43 @@ function setLapPeriod(mode,btn){
   document.querySelectorAll('#tab-laporan .period-row .cat-chip').forEach(x=>x.classList.remove('active')); if(btn)btn.classList.add('active');
   const f=document.getElementById('lap-from'),t=document.getElementById('lap-to'),sd=document.getElementById('lap-sd'),a=document.getElementById('lap-apply');
   const d=new Date();
-  if(mode==='range'){f.style.display='inline-block';t.style.display='inline-block';sd.style.display='inline';a.style.display='inline-block';if(!f.value)f.value=new Date(Date.now()-7*86400000).toISOString().slice(0,10);if(!t.value)t.value=d.toISOString().slice(0,10)}else{f.style.display=t.style.display=sd.style.display=a.style.display='none';if(mode==='yesterday'){const y=new Date(Date.now()-86400000).toISOString().slice(0,10);f.value=t.value=y}else{const x=d.toISOString().slice(0,10);f.value=t.value=x}}
+  const iso=day=>`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+  if(mode==='range'){
+    f.style.display='inline-block';t.style.display='inline-block';sd.style.display='inline';a.style.display='inline-block';
+    if(!f.value){const weekAgo=new Date(d);weekAgo.setDate(d.getDate()-7);f.value=iso(weekAgo)}
+    if(!t.value)t.value=iso(d);
+  }else{
+    f.style.display=t.style.display=sd.style.display=a.style.display='none';
+    let from=new Date(d),to=new Date(d);
+    if(mode==='yesterday'){from.setDate(from.getDate()-1);to=new Date(from)}
+    else if(mode==='week'){from.setDate(from.getDate()-((from.getDay()+6)%7))}
+    else if(mode==='month'){from=new Date(d.getFullYear(),d.getMonth(),1)}
+    f.value=iso(from);t.value=iso(to);
+  }
   loadLaporan();
 }
 async function loadLaporan() {
   const d = new Date();
   const f=document.getElementById('lap-from'),t=document.getElementById('lap-to');
-  const from=f?.value || d.toISOString().slice(0,10), to=t?.value || from;
-  document.getElementById('lap-date').textContent = '📅 ' + (from===to?new Date(from+'T00:00:00').toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):`${from} s/d ${to}`);
+  const iso=day=>`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+  const from=f?.value || iso(d), to=t?.value || from;
+  if(f&&!f.value)f.value=from;if(t&&!t.value)t.value=to;
+  const dateLabel=value=>new Date(value+'T00:00:00').toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('lap-date').textContent = '📅 ' + (from===to?dateLabel(from):`${dateLabel(from)} s/d ${dateLabel(to)}`);
+  if(to<from){toast('Tanggal selesai tidak boleh sebelum tanggal mulai','error');return}
   if(me?.role==='admin'){const eb=document.getElementById('lap-export-buttons');if(eb)eb.style.display='grid';}
   try {
-    const data = await api('GET',`/api/laporan/harian?tanggal=${from}`);
+    const data = await api('GET',`/api/laporan/rentang?tanggal_mulai=${from}&tanggal_selesai=${to}`);
     document.getElementById('s-penjualan').textContent = fmt(data.total_penjualan);
     document.getElementById('s-trx').textContent = data.jumlah_transaksi+' trx';
     document.getElementById('s-laba').textContent = fmt(data.laba_bersih);
-    const st=await api('GET','/api/laporan/dashboard'); document.getElementById('s-stok').textContent = st.stok_menipis_count+' item'; document.getElementById('s-bulan').textContent = fmt(st.total_penjualan_bulan_ini); const elPeng = document.getElementById('s-pengeluaran'); if(elPeng) elPeng.textContent = fmt(st.total_pengeluaran_hari_ini || 0);
+    document.getElementById('s-pengeluaran').textContent = fmt(data.total_pengeluaran);
+    document.getElementById('s-ppn').textContent = fmt(data.total_ppn);
+    const st=await api('GET','/api/laporan/dashboard');
+    document.getElementById('s-stok').textContent = st.stok_menipis_count+' item';
     const topEl = document.getElementById('top-list');
     if(!data.top_produk?.length) topEl.innerHTML='<div class="empty-state"><div class="icon">📊</div><p>Belum ada penjualan produk pada periode ini</p></div>';
-    else topEl.innerHTML=data.top_produk.map((x,i)=>`<div class="top-item"><span class="top-rank">#${i+1}</span><span class="top-name">${x.nama}</span><span class="top-qty">${x.qty} terjual • ${fmt(x.total)}</span></div>`).join('');
+    else topEl.innerHTML=data.top_produk.map((x,i)=>`<div class="top-item"><span class="top-rank">#${i+1}</span><span class="top-name">${x.nama}</span><span class="top-qty">${x.qty} terjual • Subtotal ${fmt(x.subtotal)}</span></div>`).join('');
     const payBox=document.getElementById('lap-payment-list');if(payBox){payBox.innerHTML=Object.entries(data.penjualan_per_metode||{}).map(([k,v])=>`<div class="top-item"><span class="top-name">${k}</span><span class="top-qty">${fmt(v)}</span></div>`).join('')||'<div class="admin-sub">Belum ada data pembayaran.</div>'}
   } catch(e) { toast('Gagal memuat laporan','error'); }
 }
@@ -2694,7 +2715,25 @@ async function openAdminDrawer(){try{await api('POST','/api/admin/drawer/open');
 async function loadDrawerLog(){const el=document.getElementById('drawer-log');if(!el)return;try{const rows=await api('GET','/api/admin/drawer/log');el.innerHTML=rows.map(x=>`<div class="backup-row"><div><b>${new Date(x.timestamp).toLocaleString('id-ID')}</b><div class="admin-row-meta">${x.user} · ${x.aksi}</div></div><span class="admin-pill">${x.keterangan||'-'}</span></div>`).join('')||'<div class="admin-card">Belum ada log.</div>'}catch(e){el.innerHTML=`<div class="admin-card">❌ ${e.message}</div>`}}
 
 
-function exportReport(kind){const f=document.getElementById('lap-from')?.value||new Date().toISOString().slice(0,10),t=document.getElementById('lap-to')?.value||f;const q=`tanggal_mulai=${f}&tanggal_selesai=${t}`;const path=kind==='tax'?'/api/laporan/export-tax.xlsx':kind==='xlsx'?'/api/laporan/export.xlsx':'/api/laporan/export.csv';fetch(API+path+'?'+q,{headers:{Authorization:'Bearer '+token}}).then(async r=>{if(!r.ok)throw new Error(await r.text());return r.blob()}).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=kind==='csv'?`laporan_penjualan_${f}_${t}.csv`:kind==='tax'?`rekap_pajak_ppn_${f}_${t}.xlsx`:`laporan_penjualan_${f}_${t}.xlsx`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}).catch(e=>toast(e.message,'error'))}
+function exportReport(kind){
+  const iso=day=>`${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`;
+  const today=iso(new Date());
+  const from=document.getElementById('lap-from')?.value||today;
+  const to=document.getElementById('lap-to')?.value||from;
+  if(to<from){toast('Tanggal selesai tidak boleh sebelum tanggal mulai','error');return}
+  const query=`tanggal_mulai=${from}&tanggal_selesai=${to}`;
+  const path=kind==='tax'?'/api/laporan/export-tax.xlsx':kind==='xlsx'?'/api/laporan/export.xlsx':'/api/laporan/export.csv';
+  fetch(API+path+'?'+query,{headers:{Authorization:'Bearer '+token}})
+    .then(async response=>{if(!response.ok)throw new Error(await response.text());return response.blob()})
+    .then(blob=>{
+      const link=document.createElement('a');
+      link.href=URL.createObjectURL(blob);
+      link.download=kind==='csv'?`laporan_penjualan_${from}_${to}.csv`:kind==='tax'?`rekap_pajak_ppn_${from}_${to}.xlsx`:`laporan_penjualan_${from}_${to}.xlsx`;
+      link.click();
+      setTimeout(()=>URL.revokeObjectURL(link.href),500);
+    })
+    .catch(error=>toast(error.message,'error'));
+}
 
 // Start the application only after the entire script has initialized.
 if (token && me) goMain();
